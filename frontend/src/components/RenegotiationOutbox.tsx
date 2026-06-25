@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Mail, Send, Save, PenLine } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
@@ -12,12 +12,6 @@ function MessageCard({ msg, commitment }: { msg: RenegotiationMessage; commitmen
   const [recipient, setRecipient] = useState(msg.recipient ?? '')
   const [subject, setSubject] = useState(msg.subject)
   const [body, setBody] = useState(msg.body)
-
-  useEffect(() => {
-    setRecipient(msg.recipient ?? '')
-    setSubject(msg.subject)
-    setBody(msg.body)
-  }, [msg.id, msg.recipient, msg.subject, msg.body])
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['renegotiations'] })
   const save = useMutation({

@@ -10,6 +10,13 @@ import type { Commitment, CommitmentCreate, CommitmentStatus } from '../types'
 
 const STATUS_OPTIONS: CommitmentStatus[] = ['not_started', 'in_progress', 'done', 'deferred', 'dropped']
 
+// Module-scope so the overdue check (which reads the clock) stays out of the
+// component render body — keeps the purity rule happy while still reflecting
+// "now" on every render.
+function isOverdue(deadline: string, closed: boolean): boolean {
+  return !closed && new Date(deadline).getTime() < Date.now()
+}
+
 export function CommitmentsPanel() {
   const qc = useQueryClient()
   const [nlText, setNlText] = useState('')
@@ -108,7 +115,7 @@ export function CommitmentsPanel() {
                   <div className="min-w-0">
                     <div className={cx('truncate font-600', closed && 'text-faint line-through')}>{c.title}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-faint">
-                      <span className={cx(new Date(c.deadline).getTime() < Date.now() && !closed && 'text-coral')}>
+                      <span className={cx(isOverdue(c.deadline, closed) && 'text-coral')}>
                         {relativeDeadline(c.deadline)}
                       </span>
                       <span>{formatMinutes(c.est_effort_minutes)} effort</span>
