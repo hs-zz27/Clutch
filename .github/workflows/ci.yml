@@ -12,10 +12,38 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      # The app tolerates these being unset, but we pass harmless placeholders
+      # so nothing reads real secrets in CI. Unit tests don't touch the DB.
+      DATABASE_URL: ""
+      GEMINI_API_KEY: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt 
-      - run: python -c "import app.main"   
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Import smoke test
+        run: python -c "import app.main"
+      - name: Run tests
+        run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: npm install
+      - name: Lint
+        run: npm run lint
+      - name: Type-check & build
+        run: npm run build
