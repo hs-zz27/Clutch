@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 from app.core.config import settings
 from app.core.db import Base
+import app.models  # noqa: F401  (registers all models on Base.metadata for autogenerate)
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 db_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg://").replace("postgresql://", "postgresql+psycopg://").replace("ssl=require", "sslmode=require")
