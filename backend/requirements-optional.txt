@@ -1,0 +1,6 @@
+# Optional extras. The core app runs without these; install only to enable
+# the matching feature. Imports are guarded, so a missing/incompatible version
+# here can never break the main service.
+#
+#   ICS calendar-feed sync (POST /calendar/sync-ics):
+icalendar==6.1.0

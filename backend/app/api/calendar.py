@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from app.schemas.calendar import BusyBlockCreate, BusyBlockRead, CapacityRead
 from app.services import busy_blocks as busy_service
 from app.services import capacity as capacity_service
 from app.services import commitments as commitments_service
+from app.services import ics as ics_service
 from app.services import triage as triage_service
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -33,6 +35,19 @@ async def delete_busy_block(block_id: int, db: AsyncSession = Depends(get_db)):
     if block is None:
         raise HTTPException(status_code=404, detail="Busy block not found")
     await busy_service.delete_block(db, block)
+
+
+@router.post("/sync-ics")
+async def sync_ics(db: AsyncSession = Depends(get_db)):
+    """Import busy blocks from the configured ICS feed (optional feature)."""
+    try:
+        return await ics_service.sync(db)
+    except ics_service.IcsNotAvailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(
+            status_code=502, detail="Could not fetch or parse the ICS feed."
+        )
 
 
 @router.get("/capacity", response_model=CapacityRead)
