@@ -25,15 +25,17 @@ export function HealthBadge() {
       )}
       title={ok ? 'Backend reachable' : 'Backend unreachable'}
     >
-      <span
-        className={cx(
-          'inline-block h-1.5 w-1.5 rounded-full',
-          tone === 'teal' && 'bg-teal',
-          tone === 'coral' && 'bg-coral',
-          tone === 'muted' && 'bg-muted',
-          ok && 'animate-pulse',
-        )}
-      />
+      <span className="relative inline-flex h-1.5 w-1.5">
+        {ok && <span className="absolute inline-flex h-full w-full rounded-full bg-teal opacity-60 animate-ping" />}
+        <span
+          className={cx(
+            'relative inline-block h-1.5 w-1.5 rounded-full',
+            tone === 'teal' && 'bg-teal',
+            tone === 'coral' && 'bg-coral',
+            tone === 'muted' && 'bg-muted',
+          )}
+        />
+      </span>
       api {label}
     </span>
   )

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { CalendarClock, TrendingDown } from 'lucide-react'
 import { ClutchApi } from '../api'
-import { Chip, EmptyState, ErrorNote, Panel, Spinner } from './ui'
+import { Chip, EmptyState, ErrorNote, Panel, Skeleton } from './ui'
 import { RISK_META } from '../lib/meta'
 import { cx, formatDateTime, formatMinutes, relativeDeadline } from '../lib/format'
 
@@ -22,7 +22,11 @@ export function PlanTimeline() {
       }
     >
       {plan.isLoading ? (
-        <div className="flex justify-center py-8"><Spinner /></div>
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
       ) : plan.isError ? (
         <ErrorNote>Could not compute the plan.</ErrorNote>
       ) : !plan.data || plan.data.schedule.length === 0 ? (
@@ -37,7 +41,7 @@ export function PlanTimeline() {
               </span>
             </div>
           )}
-          <ol className="relative space-y-2 before:absolute before:bottom-2 before:left-[7px] before:top-2 before:w-px before:bg-line-soft">
+          <ol className="timeline stagger space-y-2">
             {plan.data.schedule.map((item) => {
               const rm = RISK_META[item.risk]
               return (

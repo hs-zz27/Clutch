@@ -27,7 +27,7 @@ export default function WarRoom() {
   return (
     <Shell>
       {/* hero / situation board */}
-      <section className="panel rail-ember mb-5 overflow-hidden">
+      <section className="panel rail-ember reveal mb-5 overflow-hidden">
         <div className="grid items-center gap-5 p-5 md:grid-cols-[1fr_auto]">
           <div>
             <div className="mb-1 font-mono text-xs uppercase tracking-[0.24em] text-faint">situation board</div>
@@ -61,12 +61,12 @@ export default function WarRoom() {
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
-        <div className="space-y-5">
+        <div className="space-y-5 stagger">
           <CommitmentsPanel />
           <PlanTimeline />
           <AgentConsole />
         </div>
-        <div className="space-y-5">
+        <div className="space-y-5 stagger">
           <CapacityPanel />
           <RenegotiationOutbox />
           <KnowledgePanel />

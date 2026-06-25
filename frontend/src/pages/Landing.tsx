@@ -45,7 +45,7 @@ export default function Landing() {
       </header>
 
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-10 pt-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
+        <div className="reveal">
           <div className="mb-5 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.24em] text-faint">
             <Sparkles className="h-3.5 w-3.5 text-ember" />
             when everything is due at once
@@ -53,7 +53,7 @@ export default function Landing() {
           <h1 className="font-display text-5xl font-700 leading-[1.02] tracking-tight sm:text-6xl">
             Stop drowning.
             <br />
-            <span className="text-ember">Start triaging.</span>
+            <span className="text-ember-anim">Start triaging.</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
             Clutch is a deadline triage agent for the last-minute scramble. It weighs what
@@ -70,9 +70,9 @@ export default function Landing() {
             </Link>
             <span className="font-mono text-xs text-faint">no signup · single operator</span>
           </div>
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 stagger sm:grid-cols-4">
             {FLOW.map((f, i) => (
-              <div key={f.label} className="panel rail-ember p-4">
+              <div key={f.label} className="panel rail-ember p-4 hover-lift">
                 <div className="flex items-center gap-2 text-faint">
                   <span className="font-mono text-xs">0{i + 1}</span>
                   <f.icon className="h-4 w-4 text-ember" />
@@ -85,12 +85,12 @@ export default function Landing() {
         </div>
 
         {/* sample triage card — product peek */}
-        <div className="panel rail-coral overflow-hidden">
+        <div className="panel rail-coral reveal overflow-hidden">
           <div className="panel-head">
             <h3 className="panel-title">Triage · sample</h3>
             <Chip tone="coral">deficit 95m</Chip>
           </div>
-          <div className="panel-body space-y-3">
+          <div className="panel-body space-y-3 stagger">
             <div className="flex items-center justify-between font-mono text-xs text-faint">
               <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> capacity 240m</span>
               <span>required 335m</span>
@@ -117,9 +117,9 @@ export default function Landing() {
         <div className="mb-4 font-mono text-xs uppercase tracking-[0.24em] text-faint">
           four decisions, every time
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 stagger sm:grid-cols-2 lg:grid-cols-4">
           {DECISIONS.map((d) => (
-            <div key={d.key} className={cx('panel p-5', `rail-${d.tone}`)}>
+            <div key={d.key} className={cx('panel p-5 hover-lift', `rail-${d.tone}`)}>
               <Chip tone={d.tone}>{d.key}</Chip>
               <h4 className="mt-3 font-display text-lg font-700">{d.title}</h4>
               <p className="mt-1 text-sm leading-snug text-muted">{d.blurb}</p>

@@ -2,8 +2,8 @@
 
 /*
  * Clutch — "operations desk" theme.
- * Deliberately not a slate/indigo dashboard and not CLEAR's cream neo-brutalism:
- * warm charcoal paper, a single ember accent, hairline rails, mono numerals.
+ * Warm charcoal paper, a single ember accent, hairline rails, mono numerals.
+ * Motion layer: reveals, ambient aurora, grain, shimmer, urgency.
  */
 @theme {
   --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
@@ -31,6 +31,10 @@
   --color-amber: #f4b740;
   --color-coral: #ff5a5f;
   --color-iris: #8b7bff;
+
+  /* motion easings */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -45,14 +49,40 @@ body,
 
 body {
   margin: 0;
+  position: relative;
   @apply bg-ink text-paper font-sans antialiased;
-  /* faint dot-grid + warm vignette so empty space never looks flat/templated */
   background-image:
     radial-gradient(circle at 1px 1px, rgba(243, 235, 221, 0.04) 1px, transparent 0),
     radial-gradient(120% 90% at 50% -10%, rgba(255, 122, 47, 0.08), transparent 60%);
   background-size: 22px 22px, 100% 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* drifting aurora wash — keeps empty space alive without looking templated */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 16% 14%, rgba(255, 122, 47, 0.10), transparent 60%),
+    radial-gradient(36% 32% at 86% 82%, rgba(139, 123, 255, 0.08), transparent 60%);
+  filter: blur(18px);
+  animation: aurora 28s var(--ease-out-soft) infinite alternate;
+}
+
+/* fine film grain — tactile, hand-made feel */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
 }
 
 h1, h2, h3, h4 {
@@ -78,10 +108,116 @@ h1, h2, h3, h4 {
   background: var(--color-faint);
 }
 
+/* --------------------------------------------------------------------- */
+/* Motion keyframes                                                      */
+/* --------------------------------------------------------------------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@keyframes shine {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
+@keyframes aurora {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(2.5%, -2%) scale(1.08); }
+}
+@keyframes draw-line {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.045); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.03); }
+  70% { transform: scale(1); }
+}
+@keyframes sheen {
+  to { background-position: 200% 0; }
+}
+
+/* --------------------------------------------------------------------- */
+/* Motion utilities                                                      */
+/* --------------------------------------------------------------------- */
+.reveal { animation: fade-up 0.55s var(--ease-out-soft) both; }
+.animate-fade-in { animation: fade-in 0.2s ease both; }
+.animate-scale-in { animation: scale-in 0.28s var(--ease-spring) both; }
+
+/* container that cascades its direct children in */
+.stagger > * { animation: fade-up 0.55s var(--ease-out-soft) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+.stagger > *:nth-child(7) { animation-delay: 0.40s; }
+.stagger > *:nth-child(8) { animation-delay: 0.46s; }
+.stagger > *:nth-child(9) { animation-delay: 0.52s; }
+.stagger > *:nth-child(10) { animation-delay: 0.58s; }
+.stagger > *:nth-child(11) { animation-delay: 0.64s; }
+.stagger > *:nth-child(12) { animation-delay: 0.70s; }
+
+.hover-lift { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s ease; }
+.hover-lift:hover { transform: translateY(-4px); box-shadow: 0 24px 48px -30px rgba(0, 0, 0, 0.95); }
+
+/* animated gradient text for the hero accent word */
+.text-ember-anim {
+  background: linear-gradient(100deg, var(--color-ember), var(--color-ember-soft) 45%, var(--color-ember));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sheen 6s linear infinite;
+}
+
+/* countdown urgency */
+.countdown-urgent { animation: heartbeat 1.6s ease-in-out infinite; }
+.text-glow-ember { text-shadow: 0 0 18px rgba(255, 122, 47, 0.55); }
+.text-glow-amber { text-shadow: 0 0 18px rgba(244, 183, 64, 0.55); }
+.text-glow-coral { text-shadow: 0 0 22px rgba(255, 90, 95, 0.62); }
+
+/* animated timeline spine */
+.timeline { position: relative; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--color-line-soft);
+  transform: scaleY(0);
+  transform-origin: top;
+  animation: draw-line 0.7s var(--ease-out-soft) 0.1s both;
+}
+
 @layer components {
   .panel {
     @apply rounded-xl border border-line bg-surface;
     box-shadow: 0 1px 0 0 rgba(243, 235, 221, 0.03) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+    transition: box-shadow 0.3s var(--ease-out-soft), border-color 0.3s var(--ease-out-soft);
+  }
+  .panel:hover {
+    box-shadow: 0 1px 0 0 rgba(243, 235, 221, 0.05) inset, 0 24px 50px -28px rgba(0, 0, 0, 0.95);
   }
   .panel-head {
     @apply flex items-center justify-between gap-3 border-b border-line-soft px-5 py-4;
@@ -93,7 +229,6 @@ h1, h2, h3, h4 {
     @apply px-5 py-4;
   }
 
-  /* accent rails — the signature card cue (vs CLEAR's hard black shadow) */
   .rail-ember { border-left: 3px solid var(--color-ember); }
   .rail-teal { border-left: 3px solid var(--color-teal); }
   .rail-amber { border-left: 3px solid var(--color-amber); }
@@ -123,7 +258,17 @@ h1, h2, h3, h4 {
 
   .btn-ember {
     @apply border-transparent bg-ember font-700 text-ink;
+    position: relative;
+    overflow: hidden;
   }
+  .btn-ember::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%);
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  }
+  .btn-ember:hover:not(:disabled)::before { animation: shine 0.9s var(--ease-out-soft); }
   .btn-ember:hover:not(:disabled) { background: var(--color-ember-soft); }
 
   .btn-ghost { @apply border-transparent text-muted; }
@@ -141,4 +286,22 @@ h1, h2, h3, h4 {
   }
 
   .hairline { @apply border-t border-line-soft; }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-line-soft) 25%, var(--color-line) 37%, var(--color-line-soft) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 0.5rem;
+  }
+}
+
+/* respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  body::before { animation: none; }
 }

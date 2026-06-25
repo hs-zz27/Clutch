@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useEffect } from 'react'
 import { Loader2, X } from 'lucide-react'
 import { cx } from '../lib/format'
+import { useCountUp } from '../lib/useCountUp'
 
 export type Tone = 'ember' | 'teal' | 'amber' | 'coral' | 'iris' | 'muted'
 
@@ -62,10 +63,13 @@ export function Panel({
 }
 
 export function Stat({ value, label, tone }: { value: ReactNode; label: ReactNode; tone?: Tone }) {
+  const isNum = typeof value === 'number'
+  const animated = useCountUp(isNum ? (value as number) : 0)
+  const shown: ReactNode = isNum ? Math.round(animated) : value
   return (
     <div className={cx('stat', tone && RAIL_TONE[tone])}>
       <div className={cx('stat-num', tone === 'coral' && 'text-coral', tone === 'teal' && 'text-teal', tone === 'amber' && 'text-amber')}>
-        {value}
+        {shown}
       </div>
       <div className="stat-label">{label}</div>
     </div>
@@ -100,6 +104,10 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
 
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cx('h-4 w-4 animate-spin text-muted', className)} />
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cx('skeleton', className)} />
 }
 
 export function EmptyState({ icon, title, hint }: { icon?: ReactNode; title: string; hint?: string }) {
@@ -140,9 +148,9 @@ export function Modal({
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/70 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="panel mt-[6vh] w-full max-w-lg"
+        className="panel animate-scale-in mt-[6vh] w-full max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="panel-head">
