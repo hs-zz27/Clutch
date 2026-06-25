@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/*
+ * Clutch — "operations desk" theme.
+ * Deliberately not a slate/indigo dashboard and not CLEAR's cream neo-brutalism:
+ * warm charcoal paper, a single ember accent, hairline rails, mono numerals.
+ */
+@theme {
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-ink: #14110d;
+  --color-ink-2: #1b1712;
+  --color-surface: #1f1a14;
+  --color-surface-2: #272018;
+  --color-line: #3a322a;
+  --color-line-soft: #2b251e;
+
+  --color-paper: #f3ebdd;
+  --color-muted: #a89b86;
+  --color-faint: #6f6557;
+
+  --color-ember: #ff7a2f;
+  --color-ember-soft: #ffa766;
+  --color-teal: #2dd4bf;
+  --color-amber: #f4b740;
+  --color-coral: #ff5a5f;
+  --color-iris: #8b7bff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  @apply bg-ink text-paper font-sans antialiased;
+  /* faint dot-grid + warm vignette so empty space never looks flat/templated */
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(243, 235, 221, 0.04) 1px, transparent 0),
+    radial-gradient(120% 90% at 50% -10%, rgba(255, 122, 47, 0.08), transparent 60%);
+  background-size: 22px 22px, 100% 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  @apply font-display;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--color-ember);
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+  border: 2px solid var(--color-ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-line bg-surface;
+    box-shadow: 0 1px 0 0 rgba(243, 235, 221, 0.03) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+  }
+  .panel-head {
+    @apply flex items-center justify-between gap-3 border-b border-line-soft px-5 py-4;
+  }
+  .panel-title {
+    @apply font-display text-sm font-700 uppercase tracking-[0.14em] text-muted;
+  }
+  .panel-body {
+    @apply px-5 py-4;
+  }
+
+  /* accent rails — the signature card cue (vs CLEAR's hard black shadow) */
+  .rail-ember { border-left: 3px solid var(--color-ember); }
+  .rail-teal { border-left: 3px solid var(--color-teal); }
+  .rail-amber { border-left: 3px solid var(--color-amber); }
+  .rail-coral { border-left: 3px solid var(--color-coral); }
+  .rail-iris { border-left: 3px solid var(--color-iris); }
+
+  .stat {
+    @apply rounded-lg border border-line-soft bg-ink-2 px-4 py-3;
+  }
+  .stat-num {
+    @apply font-mono text-2xl font-700 text-paper;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-label {
+    @apply mt-0.5 text-xs font-600 uppercase tracking-[0.12em] text-faint;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-700 uppercase tracking-[0.08em];
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-600 text-paper transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn:hover:not(:disabled) { border-color: color-mix(in oklab, var(--color-ember) 60%, transparent); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+
+  .btn-ember {
+    @apply border-transparent bg-ember font-700 text-ink;
+  }
+  .btn-ember:hover:not(:disabled) { background: var(--color-ember-soft); }
+
+  .btn-ghost { @apply border-transparent text-muted; }
+  .btn-ghost:hover:not(:disabled) { @apply text-paper; border-color: transparent; }
+
+  .field {
+    @apply w-full rounded-lg border border-line bg-ink-2 px-3 py-2 text-sm text-paper outline-none transition placeholder:text-faint;
+  }
+  .field:focus {
+    border-color: color-mix(in oklab, var(--color-ember) 70%, transparent);
+    box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.15);
+  }
+  .label {
+    @apply mb-1 block text-xs font-600 uppercase tracking-[0.1em] text-muted;
+  }
+
+  .hairline { @apply border-t border-line-soft; }
+}
