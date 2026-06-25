@@ -16,6 +16,9 @@ router = APIRouter(prefix="/commitments", tags=["commitments"])
 
 @router.post("", response_model=CommitmentRead)
 async def create_commitment(payload: CommitmentCreate, db: AsyncSession = Depends(get_db)):
+    err = await service.validate_dependency(db, payload.depends_on_id)
+    if err:
+        raise HTTPException(400, err)
     objs = await service.create_commitments(db, [payload])
     obj = objs[0]
     await ledger_service.record(
@@ -45,8 +48,14 @@ async def update_commitment(commitment_id: int, payload: CommitmentUpdate, db: A
     existing = await service.get_commitment(db, commitment_id)
     if not existing:
         raise HTTPException(404, "Commitment not found")
-    before = ledger_service.snapshot_commitment(existing)
     changed = list(payload.model_dump(exclude_unset=True).keys())
+    if "depends_on_id" in changed:
+        err = await service.validate_dependency(
+            db, payload.depends_on_id, self_id=commitment_id
+        )
+        if err:
+            raise HTTPException(400, err)
+    before = ledger_service.snapshot_commitment(existing)
     obj = await service.update_commitment(db, commitment_id, payload)
     if not obj:
         raise HTTPException(404, "Commitment not found")
@@ -85,6 +94,8 @@ async def delete_commitment(commitment_id: int, db: AsyncSession = Depends(get_d
 
 @router.post("/parse", response_model=list[CommitmentRead])
 async def parse_commitments(payload: ParseRequest, db: AsyncSession = Depends(get_db)):
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(400, "No text provided")
     now = datetime.now(timezone.utc).isoformat()
     prompt = f"""You extract commitments/tasks from a user's messy text.
 The current datetime (UTC) is {now}.
@@ -93,15 +104,20 @@ Estimate est_effort_minutes realistically. Set importance 1-5 (5 = critical).
 If a stakeholder/person is mentioned, fill it in; otherwise leave it null.
 User text:
 {payload.text}"""
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": list[CommitmentCreate],
-        },
-    )
-    parsed: list[CommitmentCreate] = response.parsed
+    try:
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": list[CommitmentCreate],
+            },
+        )
+        parsed: list[CommitmentCreate] = list(response.parsed or [])
+    except Exception:
+        raise HTTPException(502, "Failed to parse commitments from the text")
+    if not parsed:
+        return []
     created = await service.create_commitments(db, parsed)
     for obj in created:
         await ledger_service.record(
