@@ -18,5 +18,16 @@ class Settings(BaseSettings):
     GMAIL_SENDER: str = ""
     GMAIL_APP_PASSWORD: str = ""
 
+    # Capacity model. Available focus time is computed inside this daily window
+    # (local to TIMEZONE), capped at MAX_FOCUS_HOURS_PER_DAY, minus busy blocks.
+    TIMEZONE: str = "Asia/Calcutta"
+    WORK_DAY_START_HOUR: int = 9   # 0-23, local time
+    WORK_DAY_END_HOUR: int = 23    # 0-23, local time, must be > start
+    MAX_FOCUS_HOURS_PER_DAY: float = 10.0
+
+    # Optional read-only calendar feed (.ics). Used to import busy blocks without
+    # any OAuth. Leave empty to disable ICS sync.
+    CALENDAR_ICS_URL: str = ""
+
 
 settings = Settings()
