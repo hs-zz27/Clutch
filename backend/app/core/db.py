@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlsplit, urlunsplit
 from collections.abc import AsyncGenerator
 
@@ -10,12 +11,27 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
+logger = logging.getLogger("clutch")
+
 
 class Base(DeclarativeBase):
     pass
 
 
+# A parseable placeholder so the app stays importable when DATABASE_URL is unset
+# (CI smoke tests, `import app.main`, tooling). create_async_engine does not open
+# a connection, so this is harmless: any real query in such an environment fails
+# fast and loudly. Production and local always set DATABASE_URL.
+_PLACEHOLDER_URL = "postgresql+asyncpg://clutch:clutch@localhost:5432/clutch"
+
+
 def _to_asyncpg(url: str) -> str:
+    if not url:
+        logger.warning(
+            "DATABASE_URL is not set; using a placeholder engine URL. "
+            "Database access will fail until DATABASE_URL is configured."
+        )
+        return _PLACEHOLDER_URL
     parts = urlsplit(url)
     scheme = "postgresql+asyncpg"
     # drop sslmode & channel_binding; asyncpg handles SSL via connect_args
