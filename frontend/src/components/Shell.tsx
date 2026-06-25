@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Mic } from 'lucide-react'
 import { HealthBadge } from './HealthBadge'
 
 function LiveClock() {
@@ -15,7 +16,7 @@ function LiveClock() {
   )
 }
 
-/** Sticky app frame: brand mark + live clock + health badge over a content well. */
+/** Sticky app frame: brand mark + crisis entry + live clock + health badge. */
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-full">
@@ -34,7 +35,11 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             </span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Link to="/crisis" className="btn btn-ember px-3 py-1.5 text-sm">
+              <Mic className="h-4 w-4" />
+              <span className="hidden sm:inline">Crisis Mode</span>
+            </Link>
             <LiveClock />
             <HealthBadge />
           </div>

@@ -3,14 +3,15 @@
 The **War Room** UI for Clutch, the deadline triage agent. When everything is due at
 once, Clutch weighs what you owe against the focus time you actually have and tells you
 what to **do fully**, **do minimally**, **defer**, or **drop** — with the reasoning
-attached.
+attached. A hands-free **Voice Crisis Mode** lets you talk to it when you can’t even type.
 
 ## Stack
 
 - **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS v4** (CSS-first `@theme` tokens, no config file)
 - **TanStack Query** for server state, caching and polling
-- **React Router 7** for the landing ↔ war-room split
+- **React Router 7** for the landing ↔ war-room ↔ crisis split
+- **LiveKit** (`@livekit/components-react`, `livekit-client`) for the realtime voice room
 - **lucide-react** icons
 
 No state-management library and no UI kit — the design system lives in `src/index.css`
@@ -56,7 +57,7 @@ src/
     meta.ts           Status ↔ color/label maps (status, risk, decision, outbox)
   components/
     ui.tsx            Panel, Button, Chip, Stat, Modal, EmptyState…
-    Shell.tsx         Sticky app frame (brand, live clock, health badge)
+    Shell.tsx         Sticky app frame (brand, crisis entry, live clock, health)
     CountdownClock.tsx
     HealthBadge.tsx
     CommitmentsPanel.tsx / CommitmentForm.tsx
@@ -65,9 +66,11 @@ src/
     AgentConsole.tsx
     RenegotiationOutbox.tsx
     KnowledgePanel.tsx
+    CrisisMode.tsx    LiveKit room: visualizer, transcript, mic controls
   pages/
     Landing.tsx       Marketing entry screen
     WarRoom.tsx       The composed dashboard
+    Crisis.tsx        Voice Crisis Mode screen
 ```
 
 ## Features
@@ -78,5 +81,17 @@ src/
 - **Triage agent** — one tap to run the agent and read its verdict + reasoning trace.
 - **Renegotiation outbox** — AI-drafted deadline-extension emails you can edit and send.
 - **Knowledge base** — upload documents and run grounded RAG queries.
+- **Voice Crisis Mode** — hands-free triage over a LiveKit room powered by Gemini Live native audio.
+
+## Voice Crisis Mode
+
+The `/crisis` screen opens a realtime voice room. The browser asks the backend for a
+short-lived, room-scoped token (`POST /voice/token`), joins the LiveKit room, and a
+separate Python worker (see `../backend/voice/`) joins the same room running a Gemini
+Live native-audio model. The worker’s tools call the **same** Clutch API the web app
+uses, so voice and web stay perfectly in sync. The UI shows a live audio visualizer,
+the agent’s state (listening / thinking / speaking), a running transcript, and a mic /
+leave control bar. If the server reports voice is not configured, the panel degrades
+gracefully with setup guidance.
 
 Deployed as a static SPA (see `vercel.json` for rewrites).
