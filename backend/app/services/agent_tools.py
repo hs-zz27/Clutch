@@ -19,7 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import commitments as commitments_service
 from app.services import knowledge as knowledge_service
+from app.services import outbox as outbox_service
 from app.services import planner as planner_service
+from app.services import renegotiation as renegotiation_service
 from app.services import triage as triage_service
 
 
@@ -74,12 +76,51 @@ async def search_knowledge(db: AsyncSession, args: dict) -> dict:
     return await knowledge_service.search(query)
 
 
+async def draft_renegotiation(db: AsyncSession, args: dict) -> dict:
+    """Draft (never send) a renegotiation message for a commitment."""
+    raw_id = (args or {}).get("commitment_id")
+    if raw_id is None:
+        return {"error": "commitment_id is required"}
+    try:
+        commitment_id = int(raw_id)
+    except (TypeError, ValueError):
+        return {"error": "commitment_id must be an integer"}
+
+    commitment = await commitments_service.get_commitment(db, commitment_id)
+    if commitment is None:
+        return {"error": f"no commitment with id {commitment_id}"}
+
+    tone = (args or {}).get("tone") or "professional and apologetic"
+    try:
+        drafted = await renegotiation_service.draft_message(commitment, tone)
+    except Exception:
+        return {"error": "failed to generate the renegotiation draft"}
+
+    msg = await outbox_service.create_draft(
+        db,
+        commitment_id=commitment.id,
+        subject=drafted["subject"],
+        body=drafted["body"],
+        recipient=commitment.stakeholder,
+    )
+    return {
+        "id": msg.id,
+        "commitment_id": msg.commitment_id,
+        "recipient": msg.recipient,
+        "subject": msg.subject,
+        "body": msg.body,
+        "status": msg.status.value,
+        "note": "Draft saved to the outbox. A human must review and send it.",
+    }
+
+
 # dispatch table: tool name -> coroutine(db, args)
 TOOLS = {
     "get_commitments": get_commitments,
     "run_plan": run_plan,
     "run_triage": run_triage,
     "search_knowledge": search_knowledge,
+    "draft_renegotiation": draft_renegotiation,
 }
 
 # what we advertise to Gemini
@@ -128,6 +169,30 @@ FUNCTION_DECLARATIONS = [
                 )
             },
             required=["query"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="draft_renegotiation",
+        description=(
+            "Draft a message asking a stakeholder to extend the deadline or reduce "
+            "the scope of a commitment. Use this for items you decided to DEFER, or "
+            "any task whose deadline is no longer realistic. This only SAVES a "
+            "draft for the user to review and send - it never sends anything "
+            "itself."
+        ),
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "commitment_id": types.Schema(
+                    type=types.Type.INTEGER,
+                    description="The id of the commitment to renegotiate.",
+                ),
+                "tone": types.Schema(
+                    type=types.Type.STRING,
+                    description="Optional desired tone, e.g. 'professional and apologetic'.",
+                ),
+            },
+            required=["commitment_id"],
         ),
     ),
 ]
