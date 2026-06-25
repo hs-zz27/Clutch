@@ -24,11 +24,14 @@ router = APIRouter(prefix="/commitments", tags=["vision"])
 _ALLOWED_MIME = {
     "image/png",
     "image/jpeg",
+    "image/jpg",
     "image/webp",
     "image/heic",
     "image/heif",
     "application/pdf",
 }
+# non-standard aliases browsers/clients sometimes send -> canonical Gemini mime
+_MIME_ALIASES = {"image/jpg": "image/jpeg"}
 _MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
@@ -36,9 +39,10 @@ _MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 async def parse_image(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
-    mime = file.content_type or "application/octet-stream"
+    mime = (file.content_type or "application/octet-stream").lower()
     if mime not in _ALLOWED_MIME:
         raise HTTPException(415, f"Unsupported file type: {mime}")
+    gemini_mime = _MIME_ALIASES.get(mime, mime)
 
     data = await file.read()
     if not data:
@@ -59,7 +63,7 @@ Extract every distinct task you can see. If none are present, return an empty li
         resp = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=[
-                types.Part.from_bytes(data=data, mime_type=mime),
+                types.Part.from_bytes(data=data, mime_type=gemini_mime),
                 prompt,
             ],
             config={
@@ -71,6 +75,8 @@ Extract every distinct task you can see. If none are present, return an empty li
     except Exception:
         raise HTTPException(502, "Failed to read commitments from the image")
 
+    if not parsed:
+        return []
     created = await service.create_commitments(db, parsed)
     for obj in created:
         await ledger_service.record(

@@ -3,7 +3,7 @@
 POST /whatif { scenario } -> { baseline, scenario, diff }. Read-only: it never
 mutates the database. Capacity uses the same real focus-time computation as the
 agent (work hours minus calendar busy blocks), with the scenario's extra focus
-minutes layered on top.
+minutes layered on top, and the same learned calibration factor as GET /plan.
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from app.core.db import get_db
 from app.schemas.whatif import WhatIfScenario
 from app.services import busy_blocks as busy_service
+from app.services import calibration as calibration_service
 from app.services import capacity as capacity_service
 from app.services import commitments as commitments_service
 from app.services import triage as triage_service
@@ -41,4 +42,11 @@ async def run_whatif(
     now = datetime.now(timezone.utc)
     pending = triage_service.pending_commitments(rows)
     capacity = await _real_capacity(db, pending, now)
-    return whatif_service.simulate(rows, now, scenario, capacity)
+    calib = await calibration_service.get_calibration(db)
+    return whatif_service.simulate(
+        rows,
+        now,
+        scenario,
+        capacity,
+        calibration_factor=calib["effective_factor"],
+    )

@@ -22,6 +22,14 @@ from app.schemas.whatif import WhatIfScenario
 _HYPO_ID_START = -1
 
 
+def _aware(dt: datetime.datetime | None) -> datetime.datetime | None:
+    """Treat a naive scenario datetime as UTC so it never clashes with the
+    tz-aware clock inside the planner/triage."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+
 def _clone(c) -> SimpleNamespace:
     return SimpleNamespace(
         id=c.id,
@@ -51,7 +59,7 @@ def apply_scenario(commitments: list, scenario: WhatIfScenario) -> list:
             c.progress_pct = 100
             c.status = Status.done
         if c.id in scenario.deadline_overrides:
-            c.deadline = scenario.deadline_overrides[c.id]
+            c.deadline = _aware(scenario.deadline_overrides[c.id])
         if c.id in scenario.effort_overrides:
             ov = scenario.effort_overrides[c.id]
             if ov.est_effort_minutes is not None:
@@ -66,7 +74,7 @@ def apply_scenario(commitments: list, scenario: WhatIfScenario) -> list:
                 id=next_id,
                 title=h.title,
                 description=None,
-                deadline=h.deadline,
+                deadline=_aware(h.deadline),
                 est_effort_minutes=h.est_effort_minutes,
                 effort_p80_minutes=h.effort_p80_minutes,
                 importance=h.importance,
@@ -87,8 +95,11 @@ def simulate(
     now: datetime.datetime,
     scenario: WhatIfScenario,
     base_capacity_minutes: float | None,
+    calibration_factor: float = 1.0,
 ) -> dict:
-    base_plan = planner_service.build_plan(list(commitments), now)
+    base_plan = planner_service.build_plan(
+        list(commitments), now, calibration_factor
+    )
     base_triage = triage_service.run_triage(
         list(commitments), now, capacity_minutes=base_capacity_minutes
     )
@@ -101,7 +112,9 @@ def simulate(
             base_capacity_minutes + scenario.extra_focus_minutes, 0.0
         )
 
-    scen_plan = planner_service.build_plan(scenario_commitments, now)
+    scen_plan = planner_service.build_plan(
+        scenario_commitments, now, calibration_factor
+    )
     scen_triage = triage_service.run_triage(
         scenario_commitments, now, capacity_minutes=scenario_capacity
     )
@@ -121,6 +134,7 @@ def simulate(
 
     return {
         "now": now,
+        "calibration_factor": calibration_factor,
         "baseline": {"plan": base_plan, "triage": base_triage},
         "scenario": {"plan": scen_plan, "triage": scen_triage},
         "diff": diff,
