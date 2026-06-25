@@ -14,6 +14,7 @@ from app.api import (
     voice,
     whatif,
     ledger,
+    decompose,
 )
 
 app = FastAPI(title="Clutch")
@@ -38,3 +39,4 @@ app.include_router(calendar.router)
 app.include_router(voice.router)
 app.include_router(whatif.router)
 app.include_router(ledger.router)
+app.include_router(decompose.router)
