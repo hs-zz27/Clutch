@@ -4,6 +4,10 @@ Each tool is a thin async wrapper over an existing service. We expose them to
 Gemini as function declarations; the model decides which to call and in what
 order. Everything returned here must be JSON-serializable (datetimes -> ISO
 strings) so it can be handed back to the model as a function response.
+
+Every tool has the uniform signature `async def tool(db, args)` so the dispatch
+loop can call them generically; tools that take no parameters simply ignore
+`args`.
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import commitments as commitments_service
+from app.services import knowledge as knowledge_service
 from app.services import planner as planner_service
 from app.services import triage as triage_service
 
@@ -32,7 +37,7 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-async def get_commitments(db: AsyncSession) -> dict:
+async def get_commitments(db: AsyncSession, args: dict) -> dict:
     rows = await commitments_service.list_commitments(db)
     return {
         "commitments": [
@@ -52,21 +57,29 @@ async def get_commitments(db: AsyncSession) -> dict:
     }
 
 
-async def run_plan(db: AsyncSession) -> dict:
+async def run_plan(db: AsyncSession, args: dict) -> dict:
     rows = await commitments_service.list_commitments(db)
     return _jsonable(planner_service.build_plan(list(rows), _now()))
 
 
-async def run_triage(db: AsyncSession) -> dict:
+async def run_triage(db: AsyncSession, args: dict) -> dict:
     rows = await commitments_service.list_commitments(db)
     return _jsonable(triage_service.run_triage(list(rows), _now()))
 
 
-# dispatch table: tool name -> coroutine(db)
+async def search_knowledge(db: AsyncSession, args: dict) -> dict:
+    query = (args or {}).get("query", "").strip()
+    if not query:
+        return {"error": "query is required"}
+    return await knowledge_service.search(query)
+
+
+# dispatch table: tool name -> coroutine(db, args)
 TOOLS = {
     "get_commitments": get_commitments,
     "run_plan": run_plan,
     "run_triage": run_triage,
+    "search_knowledge": search_knowledge,
 }
 
 # what we advertise to Gemini
@@ -98,11 +111,30 @@ FUNCTION_DECLARATIONS = [
         ),
         parameters=types.Schema(type=types.Type.OBJECT, properties={}),
     ),
+    types.FunctionDeclaration(
+        name="search_knowledge",
+        description=(
+            "Search the user's uploaded documents (assignment briefs, specs, "
+            "rubrics, emails) to ground a decision - for example to learn what "
+            "'done' really means for a deliverable or to scope a minimum-viable "
+            "version. Pass a natural-language query."
+        ),
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "query": types.Schema(
+                    type=types.Type.STRING,
+                    description="What to look up in the uploaded documents.",
+                )
+            },
+            required=["query"],
+        ),
+    ),
 ]
 
 
-async def dispatch(name: str, db: AsyncSession) -> dict:
+async def dispatch(name: str, db: AsyncSession, args: dict) -> dict:
     tool = TOOLS.get(name)
     if tool is None:
         return {"error": f"unknown tool: {name}"}
-    return await tool(db)
+    return await tool(db, args)

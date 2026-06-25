@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api import health, commitments, planner, agent
+from app.api import health, commitments, planner, agent, knowledge
 
 app = FastAPI(title="Clutch")
 
@@ -18,3 +18,4 @@ app.include_router(health.router)
 app.include_router(commitments.router)
 app.include_router(planner.router)
 app.include_router(agent.router)
+app.include_router(knowledge.router)

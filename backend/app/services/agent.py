@@ -23,7 +23,10 @@ How to work:
 1. Call get_commitments to see the raw situation.
 2. Call run_plan to find out if there is a time deficit and how bad it is.
 3. If there is a deficit, call run_triage to decide what to sacrifice.
-4. Then STOP calling tools and write a short, direct survival plan in plain language:
+4. When you need to know what a deliverable actually requires, or how small a
+   minimum-viable version can be, call search_knowledge to consult the user's
+   uploaded briefs and specs before committing to a recommendation.
+5. Then STOP calling tools and write a short, direct survival plan in plain language:
    - lead with the headline (are they in deficit, and by how much).
    - list what to DO FULLY, DO MINIMALLY, DEFER, and DROP - each with its one-line reason.
    - end with the single most urgent next action.
@@ -54,8 +57,9 @@ async def run_agent(db: AsyncSession, goal: str) -> dict:
             return {"final_message": resp.text or "", "trace": trace}
 
         for fc in calls:
-            trace.append({"type": "tool_call", "tool": fc.name, "args": dict(fc.args or {})})
-            result = await agent_tools.dispatch(fc.name, db)
+            args = dict(fc.args or {})
+            trace.append({"type": "tool_call", "tool": fc.name, "args": args})
+            result = await agent_tools.dispatch(fc.name, db, args)
             trace.append({"type": "tool_result", "tool": fc.name, "result": result})
             contents.append(
                 types.Content(
