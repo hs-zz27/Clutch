@@ -1,0 +1,4 @@
+# Test/dev dependencies. Installs the full app requirements plus the test
+# runner. Used by CI; not needed to run the app in production.
+-r requirements.txt
+pytest==8.3.4
