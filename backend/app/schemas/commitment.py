@@ -19,6 +19,7 @@ class CommitmentUpdate(BaseModel):
     deadline: datetime | None = None
     est_effort_minutes: int | None = Field(default=None, gt=0)
     effort_p80_minutes: int | None = Field(default=None, gt=0)
+    actual_minutes: int | None = Field(default=None, gt=0)   # recorded on completion
     importance: int | None = Field(default=None, ge=1, le=5)
     stakeholder: str | None = None
     min_viable_definition: str | None = None
@@ -33,6 +34,7 @@ class CommitmentRead(BaseModel):
     deadline: datetime
     est_effort_minutes: int
     effort_p80_minutes: int | None
+    actual_minutes: int | None
     importance: int
     stakeholder: str | None
     min_viable_definition: str | None

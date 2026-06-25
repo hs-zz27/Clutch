@@ -3,15 +3,17 @@
 Schedules pending commitments and reports, for each, when it would finish and
 whether that is too late.
 
-Two upgrades layer on top of the original earliest-deadline-first pass:
+Three upgrades layer on top of the original earliest-deadline-first pass:
   - feature #3: estimates carry an expected (p50) and worst-case (p80) effort,
     so the deficit is reported as a range plus a rough 'make it' probability.
   - feature #1: commitments can depend on one another, so we schedule in true
     topological (critical-path) order and tighten each task's latest-start by
     its dependents' latest-starts.
+  - feature #4: a learned calibration_factor scales every estimate toward how
+    this person actually works (1.0 = no adjustment / not enough history yet).
 
 Everything degrades gracefully: no dependencies => earliest-deadline-first; no
-worst-case estimate => 1.5x the expected value.
+worst-case estimate => 1.5x the expected value; no history => factor 1.0.
 """
 import datetime
 
@@ -21,24 +23,31 @@ from app.models.commitment import Commitment, Status
 DEFAULT_P80_MULTIPLIER = 1.5
 
 
-def _effort_p80(commitment: Commitment) -> float:
+def _effort_p80(commitment: Commitment, calibration_factor: float = 1.0) -> float:
     """Worst-case total effort. Falls back to a multiple of the expected value
-    so we never plan on the bare optimistic number."""
+    so we never plan on the bare optimistic number, then scaled by the learned
+    calibration factor."""
     if commitment.effort_p80_minutes and commitment.effort_p80_minutes > 0:
-        return float(commitment.effort_p80_minutes)
-    return commitment.est_effort_minutes * DEFAULT_P80_MULTIPLIER
+        base = float(commitment.effort_p80_minutes)
+    else:
+        base = commitment.est_effort_minutes * DEFAULT_P80_MULTIPLIER
+    return base * calibration_factor
 
 
-def remaining_minutes(commitment: Commitment) -> float:
-    """Expected (p50) minutes of work left, scaled by progress made."""
-    total_time = commitment.est_effort_minutes
+def remaining_minutes(
+    commitment: Commitment, calibration_factor: float = 1.0
+) -> float:
+    """Expected (p50) minutes of work left, scaled by progress and calibration."""
+    total_time = commitment.est_effort_minutes * calibration_factor
     completed = total_time * commitment.progress_pct / 100.0
     return total_time - completed
 
 
-def remaining_minutes_p80(commitment: Commitment) -> float:
-    """Worst-case (p80) minutes of work left, scaled by progress made."""
-    total = _effort_p80(commitment)
+def remaining_minutes_p80(
+    commitment: Commitment, calibration_factor: float = 1.0
+) -> float:
+    """Worst-case (p80) minutes of work left, scaled by progress and calibration."""
+    total = _effort_p80(commitment, calibration_factor)
     completed = total * commitment.progress_pct / 100.0
     return total - completed
 
@@ -95,12 +104,16 @@ def _topological_order(pending: list[Commitment]) -> list[int]:
     return order
 
 
-def build_plan(commitments: list[Commitment], now: datetime.datetime) -> dict:
+def build_plan(
+    commitments: list[Commitment],
+    now: datetime.datetime,
+    calibration_factor: float = 1.0,
+) -> dict:
     pending = [
         c
         for c in commitments
         if c.status in (Status.not_started, Status.in_progress)
-        and remaining_minutes(c) > 0
+        and remaining_minutes(c, calibration_factor) > 0
     ]
     by_id = {c.id: c for c in pending}
     order = _topological_order(pending)
@@ -121,7 +134,7 @@ def build_plan(commitments: list[Commitment], now: datetime.datetime) -> dict:
             if dep in eff_latest_start:
                 latest_finish = min(latest_finish, eff_latest_start[dep])
         eff_latest_start[cid] = latest_finish - datetime.timedelta(
-            minutes=remaining_minutes(c)
+            minutes=remaining_minutes(c, calibration_factor)
         )
 
     # forward pass: sequential schedule for expected (p50) and worst-case (p80)
@@ -133,8 +146,8 @@ def build_plan(commitments: list[Commitment], now: datetime.datetime) -> dict:
 
     for cid in order:
         c = by_id[cid]
-        rem_mins = remaining_minutes(c)
-        rem_mins_p80 = remaining_minutes_p80(c)
+        rem_mins = remaining_minutes(c, calibration_factor)
+        rem_mins_p80 = remaining_minutes_p80(c, calibration_factor)
 
         projected_finish = clock + datetime.timedelta(minutes=rem_mins)
         projected_finish_p80 = clock_p80 + datetime.timedelta(minutes=rem_mins_p80)
@@ -179,6 +192,7 @@ def build_plan(commitments: list[Commitment], now: datetime.datetime) -> dict:
 
     return {
         "now": now,
+        "calibration_factor": calibration_factor,
         "schedule": schedule,
         "total_deficit_minutes": total_deficit_minutes,
         "total_deficit_minutes_p80": total_deficit_minutes_p80,
