@@ -7,6 +7,7 @@ from app.core.db import get_db
 from app.schemas.commitment import CommitmentCreate, CommitmentUpdate, CommitmentRead
 from app.core.gemini import client
 from app.services import commitments as service
+from app.services import ledger as ledger_service
 
 class ParseRequest(BaseModel):
     text: str
@@ -16,7 +17,17 @@ router = APIRouter(prefix="/commitments", tags=["commitments"])
 @router.post("", response_model=CommitmentRead)
 async def create_commitment(payload: CommitmentCreate, db: AsyncSession = Depends(get_db)):
     objs = await service.create_commitments(db, [payload])
-    return objs[0]
+    obj = objs[0]
+    await ledger_service.record(
+        db,
+        action="create_commitment",
+        target_type="commitment",
+        target_id=obj.id,
+        summary=f"Created commitment '{obj.title}'",
+        reasoning="Added via the commitments API.",
+        reversible=True,
+    )
+    return obj
 
 @router.get("", response_model=list[CommitmentRead])
 async def list_commitments(db: AsyncSession = Depends(get_db)):
@@ -31,16 +42,46 @@ async def get_commitment(commitment_id: int, db: AsyncSession = Depends(get_db))
 
 @router.patch("/{commitment_id}", response_model=CommitmentRead)
 async def update_commitment(commitment_id: int, payload: CommitmentUpdate, db: AsyncSession = Depends(get_db)):
+    existing = await service.get_commitment(db, commitment_id)
+    if not existing:
+        raise HTTPException(404, "Commitment not found")
+    before = ledger_service.snapshot_commitment(existing)
+    changed = list(payload.model_dump(exclude_unset=True).keys())
     obj = await service.update_commitment(db, commitment_id, payload)
     if not obj:
         raise HTTPException(404, "Commitment not found")
+    await ledger_service.record(
+        db,
+        action="update_commitment",
+        target_type="commitment",
+        target_id=commitment_id,
+        summary=f"Updated '{obj.title}' ({', '.join(changed) if changed else 'no fields'})",
+        reasoning="Edited via the commitments API.",
+        payload={"before": before, "changed": changed},
+        reversible=True,
+    )
     return obj
 
 @router.delete("/{commitment_id}", status_code=204)
 async def delete_commitment(commitment_id: int, db: AsyncSession = Depends(get_db)):
+    existing = await service.get_commitment(db, commitment_id)
+    if not existing:
+        raise HTTPException(404, "Commitment not found")
+    before = ledger_service.snapshot_commitment(existing)
+    title = existing.title
     success = await service.delete_commitment(db, commitment_id)
     if not success:
         raise HTTPException(404, "Commitment not found")
+    await ledger_service.record(
+        db,
+        action="delete_commitment",
+        target_type="commitment",
+        target_id=commitment_id,
+        summary=f"Deleted '{title}'",
+        reasoning="Removed via the commitments API.",
+        payload={"before": before},
+        reversible=True,
+    )
 
 @router.post("/parse", response_model=list[CommitmentRead])
 async def parse_commitments(payload: ParseRequest, db: AsyncSession = Depends(get_db)):
@@ -61,4 +102,17 @@ User text:
         },
     )
     parsed: list[CommitmentCreate] = response.parsed
-    return await service.create_commitments(db, parsed)
+    created = await service.create_commitments(db, parsed)
+    for obj in created:
+        await ledger_service.record(
+            db,
+            action="create_commitment",
+            target_type="commitment",
+            target_id=obj.id,
+            summary=f"Parsed commitment '{obj.title}' from text",
+            reasoning="Extracted from natural-language input.",
+            reversible=True,
+            commit=False,
+        )
+    await db.commit()
+    return created
