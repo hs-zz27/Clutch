@@ -11,6 +11,11 @@ value-vs-time tradeoff and buckets every pending commitment into one of:
 
 The output is deterministic and explainable: every decision carries a reason.
 The agent layer (Phase 3) turns these decisions into a human narrative.
+
+Capacity: by default capacity is the raw wall-clock minutes until the last
+deadline. Callers that know the user's *real* focus capacity (Phase 6.5 - work
+policy minus busy blocks) can pass capacity_minutes to override it. Keeping it
+optional means the engine never breaks when no calendar data is available.
 """
 from __future__ import annotations
 
@@ -29,18 +34,30 @@ def _value_density(c: Commitment) -> float:
     return c.importance / rem
 
 
-def run_triage(commitments: list[Commitment], now: datetime.datetime) -> dict:
-    plan = build_plan(commitments, now)
-
-    pending = [
+def pending_commitments(commitments: list[Commitment]) -> list[Commitment]:
+    """Commitments still needing work (shared by triage and capacity callers)."""
+    return [
         c
         for c in commitments
         if c.status in (Status.not_started, Status.in_progress)
         and remaining_minutes(c) > 0
     ]
 
-    # available capacity = minutes from now until the LAST deadline we care about
-    if pending:
+
+def run_triage(
+    commitments: list[Commitment],
+    now: datetime.datetime,
+    capacity_minutes: float | None = None,
+) -> dict:
+    plan = build_plan(commitments, now)
+
+    pending = pending_commitments(commitments)
+
+    # capacity: prefer a caller-supplied real focus budget; otherwise fall back
+    # to raw wall-clock minutes until the last deadline.
+    if capacity_minutes is not None:
+        capacity = max(capacity_minutes, 0.0)
+    elif pending:
         horizon = max(c.deadline for c in pending)
         capacity = max((horizon - now).total_seconds() / 60.0, 0.0)
     else:

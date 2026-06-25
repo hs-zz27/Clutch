@@ -17,6 +17,8 @@ from typing import Any
 from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services import busy_blocks as busy_service
+from app.services import capacity as capacity_service
 from app.services import commitments as commitments_service
 from app.services import knowledge as knowledge_service
 from app.services import outbox as outbox_service
@@ -64,9 +66,30 @@ async def run_plan(db: AsyncSession, args: dict) -> dict:
     return _jsonable(planner_service.build_plan(list(rows), _now()))
 
 
+async def _real_capacity(
+    db: AsyncSession, pending: list, now: datetime.datetime
+) -> float | None:
+    """Realistic focus minutes from now to the last deadline, or None."""
+    if not pending:
+        return None
+    horizon = max(c.deadline for c in pending)
+    blocks = await busy_service.list_blocks_between(db, now, horizon)
+    return capacity_service.available_minutes(
+        now,
+        horizon,
+        [(b.start, b.end) for b in blocks],
+        capacity_service.policy_from_settings(),
+    )
+
+
 async def run_triage(db: AsyncSession, args: dict) -> dict:
-    rows = await commitments_service.list_commitments(db)
-    return _jsonable(triage_service.run_triage(list(rows), _now()))
+    rows = list(await commitments_service.list_commitments(db))
+    now = _now()
+    pending = triage_service.pending_commitments(rows)
+    capacity = await _real_capacity(db, pending, now)
+    return _jsonable(
+        triage_service.run_triage(rows, now, capacity_minutes=capacity)
+    )
 
 
 async def search_knowledge(db: AsyncSession, args: dict) -> dict:
@@ -147,8 +170,9 @@ FUNCTION_DECLARATIONS = [
         description=(
             "Run the triage/salvage engine. Returns a DO_FULLY / DO_MINIMALLY / "
             "DEFER / DROP decision with a reason for each commitment, plus capacity, "
-            "required and deficit minutes. Use it when run_plan shows a deficit and "
-            "you need to decide what to sacrifice."
+            "required and deficit minutes. Capacity reflects the user's REAL focus "
+            "time (work hours minus calendar busy blocks). Use it when run_plan "
+            "shows a deficit and you need to decide what to sacrifice."
         ),
         parameters=types.Schema(type=types.Type.OBJECT, properties={}),
     ),
