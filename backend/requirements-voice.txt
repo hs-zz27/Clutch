@@ -1,0 +1,23 @@
+# Voice Crisis Mode (Phase 8) - the LiveKit Agents worker.
+#
+# Kept separate from requirements.txt so the API and CI stay lightweight: only
+# the machine that actually runs the voice worker needs this heavy media stack.
+# The API also needs livekit-api for the /voice/token endpoint, but that is a
+# light, pure-Python dependency already pinned in requirements.txt.
+#
+# Setup (from the backend/ directory):
+#   python -m venv .venv-voice && source .venv-voice/bin/activate
+#   pip install -r requirements-voice.txt
+#   python -m voice.agent download-files   # one-time: fetch the Silero VAD model
+#   python -m voice.agent dev              # run the worker (auto-joins rooms)
+
+# LiveKit Agents framework + the Google (Gemini Live) and Silero (VAD) plugins.
+livekit-agents[google,silero]>=1.0.0
+
+# Server SDK, used both here and by the API to mint room access tokens.
+livekit-api>=1.0.0
+
+# The worker talks to the running Clutch API over HTTP so it reuses every bit
+# of planning/triage/renegotiation logic instead of duplicating it.
+httpx>=0.27.0
+python-dotenv>=1.0.0
