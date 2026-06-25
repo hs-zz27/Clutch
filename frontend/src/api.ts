@@ -94,6 +94,20 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   return parsed as T
 }
 
+export type VoiceStatus = {
+  enabled: boolean
+  model: string
+  voice: string
+  room: string
+}
+
+export type VoiceToken = {
+  url: string
+  token: string
+  room: string
+  identity: string
+}
+
 export const ClutchApi = {
   health: () => api<Health>('/healthz'),
 
@@ -155,4 +169,9 @@ export const ClutchApi = {
   syncIcs: () => api<Record<string, unknown>>('/calendar/sync-ics', { method: 'POST' }),
   capacity: (until?: string) =>
     api<Capacity>('/calendar/capacity', { query: { until } }),
+
+  // Voice Crisis Mode
+  voiceStatus: () => api<VoiceStatus>('/voice/status'),
+  voiceToken: (body: { room?: string; identity?: string } = {}) =>
+    api<VoiceToken>('/voice/token', { method: 'POST', body }),
 }
