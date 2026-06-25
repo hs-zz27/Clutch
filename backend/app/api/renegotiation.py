@@ -12,6 +12,7 @@ from app.services import commitments as commitments_service
 from app.services import mailer
 from app.services import outbox as outbox_service
 from app.services import renegotiation as renegotiation_service
+from app.services import stakeholders as stakeholders_service
 
 router = APIRouter(prefix="/renegotiation", tags=["renegotiation"])
 
@@ -25,8 +26,15 @@ async def create_draft(
     if commitment is None:
         raise HTTPException(status_code=404, detail="Commitment not found")
 
+    # feature #8: tailor tone using the stakeholder relationship model if known
+    context = await stakeholders_service.get_context_by_name(
+        db, commitment.stakeholder
+    )
+
     try:
-        drafted = await renegotiation_service.draft_message(commitment, payload.tone)
+        drafted = await renegotiation_service.draft_message(
+            commitment, payload.tone, context
+        )
     except Exception:
         raise HTTPException(
             status_code=502, detail="Failed to generate the renegotiation draft."

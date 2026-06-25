@@ -17,6 +17,7 @@ from app.api import (
     decompose,
     vision,
     calibration,
+    stakeholders,
 )
 
 app = FastAPI(title="Clutch")
@@ -44,3 +45,4 @@ app.include_router(ledger.router)
 app.include_router(decompose.router)
 app.include_router(vision.router)
 app.include_router(calibration.router)
+app.include_router(stakeholders.router)

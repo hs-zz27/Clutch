@@ -3,6 +3,9 @@
 This is the *generation* layer only. It produces a subject + body grounded in a
 single commitment. Persistence and sending live elsewhere (outbox / mailer), and
 a human must approve before anything goes out.
+
+Feature #8: an optional stakeholder_context (relationship, formality, notes)
+lets the drafter match the register to who is being written to.
 """
 from __future__ import annotations
 
@@ -19,7 +22,7 @@ Commitment: {title}
 Stakeholder: {stakeholder}
 Deadline: {deadline}
 Importance (1-5): {importance}
-Minimum acceptable outcome: {mvd}
+Minimum acceptable outcome: {mvd}{relationship}
 
 Write the message. Output EXACTLY in this format:
 Subject: <a concise subject line>
@@ -29,7 +32,37 @@ Subject: <a concise subject line>
 Do not invent facts, dates, or commitments that are not given above."""
 
 
-async def draft_message(commitment: Commitment, tone: str) -> dict:
+def _formality_word(formality: int | None) -> str:
+    if formality is None:
+        return "appropriately professional"
+    if formality <= 2:
+        return "warm and casual"
+    if formality >= 4:
+        return "formal and respectful"
+    return "professional"
+
+
+def _relationship_block(context: dict | None) -> str:
+    if not context:
+        return ""
+    name = context.get("name") or "the stakeholder"
+    relationship = context.get("relationship") or "unspecified relationship"
+    register = _formality_word(context.get("formality"))
+    block = (
+        f"\nRelationship context: {name} is a {relationship}; "
+        f"keep the register {register}."
+    )
+    notes = context.get("notes")
+    if notes:
+        block += f" Notes about them: {notes}"
+    return block
+
+
+async def draft_message(
+    commitment: Commitment,
+    tone: str,
+    stakeholder_context: dict | None = None,
+) -> dict:
     """Return {\"subject\": str, \"body\": str}. Raises on Gemini failure."""
     prompt = _PROMPT.format(
         tone=tone,
@@ -38,6 +71,7 @@ async def draft_message(commitment: Commitment, tone: str) -> dict:
         deadline=commitment.deadline.isoformat(),
         importance=commitment.importance,
         mvd=commitment.min_viable_definition or "not specified",
+        relationship=_relationship_block(stakeholder_context),
     )
     resp = await client.aio.models.generate_content(model=MODEL, contents=prompt)
     return _split_subject_body(
