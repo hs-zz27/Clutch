@@ -10,6 +10,7 @@ from app.api import (
     agent,
     knowledge,
     renegotiation,
+    calendar,
 )
 
 app = FastAPI(title="Clutch")
@@ -30,3 +31,4 @@ app.include_router(planner.router)
 app.include_router(agent.router)
 app.include_router(knowledge.router)
 app.include_router(renegotiation.router)
+app.include_router(calendar.router)
