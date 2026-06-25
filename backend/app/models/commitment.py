@@ -20,7 +20,9 @@ class Commitment(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    est_effort_minutes: Mapped[int] = mapped_column(Integer, default=60)
+    est_effort_minutes: Mapped[int] = mapped_column(Integer, default=60)  # expected (p50)
+    # worst-case (p80) effort; when null the planner assumes 1.5x the expected.
+    effort_p80_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     importance: Mapped[int] = mapped_column(Integer, default=3)  # 5 most, 1 least
     stakeholder: Mapped[str | None] = mapped_column(String(255), nullable=True)
     min_viable_definition: Mapped[str | None] = mapped_column(Text, nullable=True)
