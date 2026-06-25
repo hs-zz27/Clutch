@@ -7,12 +7,15 @@ snapshot of the prior state, and undo them. All snapshots are JSON-safe
 from __future__ import annotations
 
 import datetime
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.decision_ledger import DecisionLedger
 from app.models.commitment import Commitment, Status
+
+logger = logging.getLogger("clutch")
 
 _COMMITMENT_FIELDS = (
     "title",
@@ -102,14 +105,32 @@ async def undo(db: AsyncSession, entry_id: int) -> dict:
     if not entry.reversible:
         return {"ok": False, "error": "this action cannot be undone"}
 
-    outcome = await _apply_undo(db, entry)
-    if outcome.get("ok"):
-        entry.undone = True
-        await db.commit()
-        await db.refresh(entry)
-    else:
+    try:
+        outcome = await _apply_undo(db, entry)
+        if outcome.get("ok"):
+            entry.undone = True
+            await db.commit()
+            await db.refresh(entry)
+        else:
+            await db.rollback()
+        return outcome
+    except Exception:
+        # a restore can still fail at flush time (e.g. a constraint we didn't
+        # anticipate). Never surface a 500 - roll back and report cleanly.
+        logger.exception("Undo failed for ledger entry %s", entry_id)
         await db.rollback()
-    return outcome
+        return {
+            "ok": False,
+            "error": "Undo could not be applied safely; nothing was changed.",
+        }
+
+
+async def _existing_commitment_id(db: AsyncSession, cid: int | None) -> int | None:
+    """Return cid only if that commitment still exists, else None."""
+    if cid is None:
+        return None
+    obj = await db.get(Commitment, cid)
+    return cid if obj is not None else None
 
 
 async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
@@ -130,7 +151,13 @@ async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
         before = payload.get("before") or {}
         if not before:
             return {"ok": False, "error": "no snapshot to restore"}
-        obj = Commitment(**_coerce_commitment(before))
+        data = _coerce_commitment(before)
+        # the prerequisite may have been deleted since; don't recreate a bad FK
+        if data.get("depends_on_id") is not None:
+            data["depends_on_id"] = await _existing_commitment_id(
+                db, data["depends_on_id"]
+            )
+        obj = Commitment(**data)
         db.add(obj)
         return {"ok": True, "detail": "Recreated the deleted commitment (new id)."}
 
@@ -141,7 +168,12 @@ async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
         obj = await db.get(Commitment, entry.target_id)
         if obj is None:
             return {"ok": False, "error": "commitment no longer exists"}
-        for f, v in _coerce_commitment(before).items():
+        restore = _coerce_commitment(before)
+        if restore.get("depends_on_id") is not None:
+            restore["depends_on_id"] = await _existing_commitment_id(
+                db, restore["depends_on_id"]
+            )
+        for f, v in restore.items():
             setattr(obj, f, v)
         return {"ok": True, "detail": "Restored the previous values."}
 
