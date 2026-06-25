@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.errors import register_exception_handlers
 from app.api import health, commitments, planner, agent, knowledge
 
 app = FastAPI(title="Clutch")
+
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
