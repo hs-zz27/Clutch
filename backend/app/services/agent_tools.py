@@ -53,6 +53,8 @@ async def get_commitments(db: AsyncSession, args: dict) -> dict:
                 "status": c.status.value,
                 "progress_pct": c.progress_pct,
                 "est_effort_minutes": c.est_effort_minutes,
+                "est_effort_p80_minutes": c.effort_p80_minutes,
+                "depends_on_id": c.depends_on_id,
                 "stakeholder": c.stakeholder,
                 "min_viable_definition": c.min_viable_definition,
             }
@@ -152,16 +154,19 @@ FUNCTION_DECLARATIONS = [
         name="get_commitments",
         description=(
             "List all of the user's commitments with their deadlines, importance, "
-            "status and progress. Call this first to see the raw situation."
+            "status, progress, expected/worst-case effort and any prerequisite "
+            "(depends_on_id). Call this first to see the raw situation."
         ),
         parameters=types.Schema(type=types.Type.OBJECT, properties={}),
     ),
     types.FunctionDeclaration(
         name="run_plan",
         description=(
-            "Run the reverse-clock planner. Returns each task's projected finish, "
-            "latest_start, lateness, risk label, and the total time deficit. Use it "
-            "to find out whether the user is in trouble and by how much."
+            "Run the reverse-clock critical-path planner. Returns each task's "
+            "projected finish (expected and worst-case), latest_start, lateness, "
+            "risk label, plus the total deficit as a range and a make_probability. "
+            "Respects task dependencies. Use it to find out whether the user is in "
+            "trouble and by how much."
         ),
         parameters=types.Schema(type=types.Type.OBJECT, properties={}),
     ),

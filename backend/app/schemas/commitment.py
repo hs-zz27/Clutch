@@ -11,6 +11,7 @@ class CommitmentCreate(BaseModel):
     importance: int = Field(default=3, ge=1, le=5)           # 1–5 only
     stakeholder: str | None = None
     min_viable_definition: str | None = None
+    depends_on_id: int | None = None                         # prerequisite commitment
 
 class CommitmentUpdate(BaseModel):
     title: str | None = None
@@ -21,6 +22,7 @@ class CommitmentUpdate(BaseModel):
     importance: int | None = Field(default=None, ge=1, le=5)
     stakeholder: str | None = None
     min_viable_definition: str | None = None
+    depends_on_id: int | None = None
     status: Status | None = None
     progress_pct: int | None = Field(default=None, ge=0, le=100)   # 0–100 only
 
@@ -34,6 +36,7 @@ class CommitmentRead(BaseModel):
     importance: int
     stakeholder: str | None
     min_viable_definition: str | None
+    depends_on_id: int | None
     status: Status
     progress_pct: int
     created_at: datetime

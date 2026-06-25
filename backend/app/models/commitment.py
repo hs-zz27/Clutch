@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Enum, Text
+from sqlalchemy import String, Integer, DateTime, Enum, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
@@ -26,6 +26,10 @@ class Commitment(Base):
     importance: Mapped[int] = mapped_column(Integer, default=3)  # 5 most, 1 least
     stakeholder: Mapped[str | None] = mapped_column(String(255), nullable=True)
     min_viable_definition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # optional prerequisite: this commitment can't start until depends_on finishes.
+    depends_on_id: Mapped[int | None] = mapped_column(
+        ForeignKey("commitments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[Status] = mapped_column(
         Enum(Status, name="status"), default=Status.not_started, index=True
     )
