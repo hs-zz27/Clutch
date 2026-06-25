@@ -3,7 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
-from app.api import health, commitments, planner, agent, knowledge
+from app.api import (
+    health,
+    commitments,
+    planner,
+    agent,
+    knowledge,
+    renegotiation,
+)
 
 app = FastAPI(title="Clutch")
 
@@ -22,3 +29,4 @@ app.include_router(commitments.router)
 app.include_router(planner.router)
 app.include_router(agent.router)
 app.include_router(knowledge.router)
+app.include_router(renegotiation.router)
