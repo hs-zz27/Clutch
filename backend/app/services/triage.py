@@ -1,0 +1,135 @@
+"""Phase 4 - Triage / Salvage Engine.
+
+When the reverse-clock planner reports a deficit (required effort > available
+time), this module decides what to sacrifice. It frames the problem as a
+value-vs-time tradeoff and buckets every pending commitment into one of:
+
+    DO_FULLY      - protect it, finish it completely
+    DO_MINIMALLY  - ship the minimum-viable version to save time
+    DEFER         - push past the deadline via renegotiation (needs a stakeholder)
+    DROP          - lowest value-per-minute, explicitly cut
+
+The output is deterministic and explainable: every decision carries a reason.
+The agent layer (Phase 3) turns these decisions into a human narrative.
+"""
+from __future__ import annotations
+
+import datetime
+
+from app.models.commitment import Commitment, Status
+from app.services.planner import build_plan, remaining_minutes
+
+# fraction of full effort a "minimum viable" version is assumed to take
+MVD_EFFORT_FRACTION = 0.4
+
+
+def _value_density(c: Commitment) -> float:
+    """Importance earned per remaining minute. Higher = protect first."""
+    rem = remaining_minutes(c) or 1.0
+    return c.importance / rem
+
+
+def run_triage(commitments: list[Commitment], now: datetime.datetime) -> dict:
+    plan = build_plan(commitments, now)
+
+    pending = [
+        c
+        for c in commitments
+        if c.status in (Status.not_started, Status.in_progress)
+        and remaining_minutes(c) > 0
+    ]
+
+    # available capacity = minutes from now until the LAST deadline we care about
+    if pending:
+        horizon = max(c.deadline for c in pending)
+        capacity = max((horizon - now).total_seconds() / 60.0, 0.0)
+    else:
+        capacity = 0.0
+
+    required = sum(remaining_minutes(c) for c in pending)
+    deficit = max(required - capacity, 0.0)
+
+    decisions: list[dict] = []
+
+    if deficit <= 0:
+        for c in pending:
+            decisions.append(
+                _decision(c, "DO_FULLY", "Fits within the available time - no sacrifice needed.")
+            )
+        return _result(plan, capacity, required, 0.0, decisions)
+
+    # deficit: protect the highest value-per-minute first
+    ranked = sorted(pending, key=_value_density, reverse=True)
+    budget = capacity
+    for c in ranked:
+        rem = remaining_minutes(c)
+        if rem <= budget:
+            decisions.append(
+                _decision(
+                    c,
+                    "DO_FULLY",
+                    f"High value for the time it costs ({c.importance}/5 in {rem:.0f} min); protected.",
+                )
+            )
+            budget -= rem
+            continue
+
+        mvd_effort = rem * MVD_EFFORT_FRACTION
+        if c.importance >= 4 and c.min_viable_definition and mvd_effort <= budget:
+            decisions.append(
+                _decision(
+                    c,
+                    "DO_MINIMALLY",
+                    (
+                        f"Too big to finish fully, but important ({c.importance}/5). "
+                        f"Ship the minimum-viable version (~{mvd_effort:.0f} min) instead."
+                    ),
+                    salvage_minutes=mvd_effort,
+                )
+            )
+            budget -= mvd_effort
+        elif c.stakeholder:
+            decisions.append(
+                _decision(
+                    c,
+                    "DEFER",
+                    (
+                        f"No time left, but '{c.stakeholder}' can likely be renegotiated - "
+                        f"push the deadline rather than drop it."
+                    ),
+                )
+            )
+        else:
+            decisions.append(
+                _decision(
+                    c,
+                    "DROP",
+                    f"Lowest value for its time cost and no one to renegotiate with - cut it to save {rem:.0f} min.",
+                )
+            )
+
+    return _result(plan, capacity, required, deficit, decisions)
+
+
+def _decision(c: Commitment, decision: str, reason: str, salvage_minutes: float | None = None) -> dict:
+    return {
+        "id": c.id,
+        "title": c.title,
+        "importance": c.importance,
+        "remaining_minutes": remaining_minutes(c),
+        "stakeholder": c.stakeholder,
+        "decision": decision,
+        "reason": reason,
+        "salvage_minutes": salvage_minutes,
+    }
+
+
+def _result(plan: dict, capacity: float, required: float, deficit: float, decisions: list[dict]) -> dict:
+    return {
+        "feasible": deficit <= 0,
+        "capacity_minutes": capacity,
+        "required_minutes": required,
+        "deficit_minutes": deficit,
+        "decisions": decisions,
+        "plan": plan,
+    }
