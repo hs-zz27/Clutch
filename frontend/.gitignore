@@ -25,3 +25,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Ignore npm lockfile and TS build caches
+package-lock.json
+*.tsbuildinfo

@@ -10,6 +10,10 @@
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
+  /* register numeric font weights so font-600 / font-700 utilities exist (v4) */
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+
   --color-ink: #14110d;
   --color-ink-2: #1b1712;
   --color-surface: #1f1a14;
