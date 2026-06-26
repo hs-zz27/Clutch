@@ -6,6 +6,12 @@ import { Button, EmptyState, ErrorNote, Panel, Spinner } from './ui'
 import { formatDateTime } from '../lib/format'
 import type { KnowledgeSearchResponse } from '../types'
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10 MB - keep in sync with the backend
+const ALLOWED_EXTENSIONS = [
+  '.pdf', '.txt', '.md', '.markdown', '.csv', '.tsv',
+  '.json', '.doc', '.docx', '.rtf', '.pptx', '.xlsx', '.log',
+]
+
 function formatBytes(n: number | null): string {
   if (!n) return ''
   if (n < 1024) return `${n} B`
@@ -18,6 +24,7 @@ export function KnowledgePanel() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [answer, setAnswer] = useState<KnowledgeSearchResponse | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const docs = useQuery({ queryKey: ['documents'], queryFn: ClutchApi.listDocuments })
 
@@ -33,6 +40,27 @@ export function KnowledgePanel() {
     onSuccess: setAnswer,
   })
 
+  function handlePicked(file: File | undefined) {
+    setValidationError(null)
+    if (fileRef.current) fileRef.current.value = '' // allow re-picking the same file
+    if (!file) return
+    const dot = file.name.lastIndexOf('.')
+    const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : ''
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      setValidationError(`Unsupported file type "${ext || 'unknown'}". Allowed: PDF, TXT, MD, CSV, JSON, DOC(X), RTF, PPTX, XLSX.`)
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setValidationError(`That file is ${formatBytes(file.size)} - the limit is 10 MB. Upload a smaller document.`)
+      return
+    }
+    upload.mutate(file)
+  }
+
+  const uploadError =
+    validationError ??
+    (upload.isError ? ((upload.error as ApiError)?.detail ?? 'Upload failed.') : null)
+
   return (
     <Panel
       title="Knowledge base"
@@ -43,8 +71,9 @@ export function KnowledgePanel() {
           <input
             ref={fileRef}
             type="file"
+            accept={ALLOWED_EXTENSIONS.join(',')}
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f) }}
+            onChange={(e) => handlePicked(e.target.files?.[0])}
           />
           <Button variant="ghost" loading={upload.isPending} onClick={() => fileRef.current?.click()}>
             <Upload className="h-4 w-4" /> Upload
@@ -52,7 +81,11 @@ export function KnowledgePanel() {
         </>
       }
     >
-      {upload.isError && <div className="mb-3"><ErrorNote>{(upload.error as ApiError)?.detail ?? 'Upload failed.'}</ErrorNote></div>}
+      {uploadError && <div className="mb-3"><ErrorNote>{uploadError}</ErrorNote></div>}
+
+      <div className="mb-3 text-[11px] text-faint">
+        Max 10 MB · PDF, TXT, MD, CSV, JSON, DOC(X), RTF, PPTX, XLSX
+      </div>
 
       <div className="mb-4 space-y-2 rounded-lg border border-line-soft bg-ink-2 p-3">
         <div className="flex gap-2">

@@ -1,9 +1,9 @@
 """What-if simulation endpoint (feature #6).
 
 POST /whatif { scenario } -> { baseline, scenario, diff }. Read-only: it never
-mutates the database. Capacity uses the same real focus-time computation as the
-agent (work hours minus calendar busy blocks), with the scenario's extra focus
-minutes layered on top, and the same learned calibration factor as GET /plan.
+mutates the database. Uses the same real working-time planner as GET /plan (work
+hours minus calendar busy blocks) and the same learned calibration factor, so
+the baseline deficit matches the War Room timeline instead of always reading 0.
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,19 +20,16 @@ from app.services import whatif as whatif_service
 
 router = APIRouter(prefix="/whatif", tags=["whatif"])
 
-
-async def _real_capacity(db: AsyncSession, pending: list, now: datetime) -> float | None:
+def _real_capacity(busy: list, pending: list, now: datetime) -> float | None:
     if not pending:
         return None
     horizon = max(c.deadline for c in pending)
-    blocks = await busy_service.list_blocks_between(db, now, horizon)
     return capacity_service.available_minutes(
         now,
         horizon,
-        [(b.start, b.end) for b in blocks],
+        [(b.start, b.end) for b in busy],
         capacity_service.policy_from_settings(),
     )
-
 
 @router.post("")
 async def run_whatif(
@@ -41,12 +38,15 @@ async def run_whatif(
     rows = list(await commitments_service.list_commitments(db))
     now = datetime.now(timezone.utc)
     pending = triage_service.pending_commitments(rows)
-    capacity = await _real_capacity(db, pending, now)
+    blocks = await busy_service.list_blocks(db)
+    capacity = _real_capacity(blocks, pending, now)
     calib = await calibration_service.get_calibration(db)
     return whatif_service.simulate(
         rows,
         now,
         scenario,
-        capacity,
+        busy_blocks=[(b.start, b.end) for b in blocks],
+        policy=capacity_service.policy_from_settings(),
+        base_capacity_minutes=capacity,
         calibration_factor=calib["effective_factor"],
     )

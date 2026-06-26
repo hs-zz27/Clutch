@@ -18,7 +18,15 @@ function MessageCard({ msg, commitment }: { msg: RenegotiationMessage; commitmen
     mutationFn: () => ClutchApi.editRenegotiation(msg.id, { recipient: recipient.trim() || null, subject, body }),
     onSuccess: refresh,
   })
-  const send = useMutation({ mutationFn: () => ClutchApi.sendRenegotiation(msg.id), onSuccess: refresh })
+  const send = useMutation({
+    mutationFn: async () => {
+      // Persist any unsaved edits (especially the recipient) first, so the
+      // server always has an address - otherwise /send returns 400.
+      await ClutchApi.editRenegotiation(msg.id, { recipient: recipient.trim() || null, subject, body })
+      return ClutchApi.sendRenegotiation(msg.id)
+    },
+    onSuccess: refresh,
+  })
 
   const meta = OUTBOX_META[msg.status]
   const sent = msg.status === 'sent'

@@ -7,9 +7,8 @@ snapshot of the prior state, and undo them. All snapshots are JSON-safe
 from __future__ import annotations
 
 import datetime
-import logging
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.decision_ledger import DecisionLedger
@@ -87,11 +86,18 @@ async def record(
     return entry
 
 
-async def list_entries(db: AsyncSession, limit: int = 100) -> list[DecisionLedger]:
+async def count_entries(db: AsyncSession) -> int:
+    result = await db.execute(select(func.count()).select_from(DecisionLedger))
+    return int(result.scalar_one())
+
+async def list_entries(
+    db: AsyncSession, limit: int = 100, offset: int = 0
+) -> list[DecisionLedger]:
     result = await db.execute(
         select(DecisionLedger)
         .order_by(DecisionLedger.created_at.desc(), DecisionLedger.id.desc())
         .limit(limit)
+        .offset(offset)
     )
     return list(result.scalars().all())
 

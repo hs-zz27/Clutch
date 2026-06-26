@@ -105,6 +105,13 @@ export interface LedgerEntry {
   created_at: string
 }
 
+export interface LedgerPage {
+  items: LedgerEntry[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface Stakeholder {
   id: number
   name: string

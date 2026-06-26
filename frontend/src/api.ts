@@ -75,9 +75,18 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
             : JSON.stringify(body),
       signal: ctrl.signal,
     })
-  } catch (e) {
-    throw new ApiError(0, e instanceof Error ? e.message : 'network error')
-  } finally {
+    } catch (e) {
+      const aborted =
+        ctrl.signal.aborted ||
+        (e instanceof DOMException && e.name === 'AbortError')
+      if (aborted) {
+        throw new ApiError(
+          0,
+          'The request timed out. If you were uploading a file, it may be too large or your connection is slow.',
+        )
+      }
+      throw new ApiError(0, e instanceof Error ? e.message : 'network error')
+    } finally {
     clearTimeout(timer)
   }
 
@@ -145,7 +154,8 @@ export const ClutchApi = {
   getCalibration: () => api<Calibration>('/calibration'),
 
   // Decision ledger
-  listLedger: (limit = 50) => api<LedgerEntry[]>('/ledger', { query: { limit } }),
+  listLedger: (limit = 20, offset = 0) =>
+    api<LedgerPage>('/ledger', { query: { limit, offset } }),
   undoLedger: (id: number) => api<{ ok: boolean }>(`/ledger/${id}/undo`, { method: 'POST' }),
 
   // Stakeholders
