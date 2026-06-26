@@ -18,6 +18,7 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import busy_blocks as busy_service
+from app.services import calibration as calibration_service
 from app.services import capacity as capacity_service
 from app.services import commitments as commitments_service
 from app.services import knowledge as knowledge_service
@@ -65,7 +66,12 @@ async def get_commitments(db: AsyncSession, args: dict) -> dict:
 
 async def run_plan(db: AsyncSession, args: dict) -> dict:
     rows = await commitments_service.list_commitments(db)
-    return _jsonable(planner_service.build_plan(list(rows), _now()))
+    calib = await calibration_service.get_calibration(db)
+    return _jsonable(
+        planner_service.build_plan(
+            list(rows), _now(), calibration_factor=calib["effective_factor"]
+        )
+    )
 
 
 async def _real_capacity(
@@ -89,8 +95,14 @@ async def run_triage(db: AsyncSession, args: dict) -> dict:
     now = _now()
     pending = triage_service.pending_commitments(rows)
     capacity = await _real_capacity(db, pending, now)
+    calib = await calibration_service.get_calibration(db)
     return _jsonable(
-        triage_service.run_triage(rows, now, capacity_minutes=capacity)
+        triage_service.run_triage(
+            rows,
+            now,
+            capacity_minutes=capacity,
+            calibration_factor=calib["effective_factor"],
+        )
     )
 
 

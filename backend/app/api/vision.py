@@ -77,6 +77,10 @@ Extract every distinct task you can see. If none are present, return an empty li
 
     if not parsed:
         return []
+    # Same guard as /commitments/parse: never persist an AI-supplied
+    # depends_on_id from bulk image capture (unvalidated FK -> 500).
+    for item in parsed:
+        item.depends_on_id = None
     created = await service.create_commitments(db, parsed)
     for obj in created:
         await ledger_service.record(

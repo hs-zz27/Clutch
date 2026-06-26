@@ -101,7 +101,10 @@ def simulate(
         list(commitments), now, calibration_factor
     )
     base_triage = triage_service.run_triage(
-        list(commitments), now, capacity_minutes=base_capacity_minutes
+        list(commitments),
+        now,
+        capacity_minutes=base_capacity_minutes,
+        calibration_factor=calibration_factor,
     )
 
     scenario_commitments = apply_scenario(commitments, scenario)
@@ -116,7 +119,10 @@ def simulate(
         scenario_commitments, now, calibration_factor
     )
     scen_triage = triage_service.run_triage(
-        scenario_commitments, now, capacity_minutes=scenario_capacity
+        scenario_commitments,
+        now,
+        capacity_minutes=scenario_capacity,
+        calibration_factor=calibration_factor,
     )
 
     diff = {

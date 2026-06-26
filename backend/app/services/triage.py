@@ -16,6 +16,10 @@ Capacity: by default capacity is the raw wall-clock minutes until the last
 deadline. Callers that know the user's *real* focus capacity (Phase 6.5 - work
 policy minus busy blocks) can pass capacity_minutes to override it. Keeping it
 optional means the engine never breaks when no calendar data is available.
+
+Calibration: callers can pass the learned calibration_factor (Phase 9 feature
+#4) so required/remaining minutes match GET /plan. Defaults to 1.0 (identity),
+so behaviour is unchanged when there is no history.
 """
 from __future__ import annotations
 
@@ -27,12 +31,10 @@ from app.services.planner import build_plan, remaining_minutes
 # fraction of full effort a "minimum viable" version is assumed to take
 MVD_EFFORT_FRACTION = 0.4
 
-
-def _value_density(c: Commitment) -> float:
+def _value_density(c: Commitment, calibration_factor: float = 1.0) -> float:
     """Importance earned per remaining minute. Higher = protect first."""
-    rem = remaining_minutes(c) or 1.0
+    rem = remaining_minutes(c, calibration_factor) or 1.0
     return c.importance / rem
-
 
 def pending_commitments(commitments: list[Commitment]) -> list[Commitment]:
     """Commitments still needing work (shared by triage and capacity callers)."""
@@ -43,13 +45,13 @@ def pending_commitments(commitments: list[Commitment]) -> list[Commitment]:
         and remaining_minutes(c) > 0
     ]
 
-
 def run_triage(
     commitments: list[Commitment],
     now: datetime.datetime,
     capacity_minutes: float | None = None,
+    calibration_factor: float = 1.0,
 ) -> dict:
-    plan = build_plan(commitments, now)
+    plan = build_plan(commitments, now, calibration_factor)
 
     pending = pending_commitments(commitments)
 
@@ -63,7 +65,7 @@ def run_triage(
     else:
         capacity = 0.0
 
-    required = sum(remaining_minutes(c) for c in pending)
+    required = sum(remaining_minutes(c, calibration_factor) for c in pending)
     deficit = max(required - capacity, 0.0)
 
     decisions: list[dict] = []
@@ -71,21 +73,31 @@ def run_triage(
     if deficit <= 0:
         for c in pending:
             decisions.append(
-                _decision(c, "DO_FULLY", "Fits within the available time - no sacrifice needed.")
+                _decision(
+                    c,
+                    "DO_FULLY",
+                    "Fits within the available time - no sacrifice needed.",
+                    calibration_factor=calibration_factor,
+                )
             )
         return _result(plan, capacity, required, 0.0, decisions)
 
     # deficit: protect the highest value-per-minute first
-    ranked = sorted(pending, key=_value_density, reverse=True)
+    ranked = sorted(
+        pending,
+        key=lambda c: _value_density(c, calibration_factor),
+        reverse=True,
+    )
     budget = capacity
     for c in ranked:
-        rem = remaining_minutes(c)
+        rem = remaining_minutes(c, calibration_factor)
         if rem <= budget:
             decisions.append(
                 _decision(
                     c,
                     "DO_FULLY",
                     f"High value for the time it costs ({c.importance}/5 in {rem:.0f} min); protected.",
+                    calibration_factor=calibration_factor,
                 )
             )
             budget -= rem
@@ -102,6 +114,7 @@ def run_triage(
                         f"Ship the minimum-viable version (~{mvd_effort:.0f} min) instead."
                     ),
                     salvage_minutes=mvd_effort,
+                    calibration_factor=calibration_factor,
                 )
             )
             budget -= mvd_effort
@@ -114,6 +127,7 @@ def run_triage(
                         f"No time left, but '{c.stakeholder}' can likely be renegotiated - "
                         f"push the deadline rather than drop it."
                     ),
+                    calibration_factor=calibration_factor,
                 )
             )
         else:
@@ -122,24 +136,29 @@ def run_triage(
                     c,
                     "DROP",
                     f"Lowest value for its time cost and no one to renegotiate with - cut it to save {rem:.0f} min.",
+                    calibration_factor=calibration_factor,
                 )
             )
 
     return _result(plan, capacity, required, deficit, decisions)
 
-
-def _decision(c: Commitment, decision: str, reason: str, salvage_minutes: float | None = None) -> dict:
+def _decision(
+    c: Commitment,
+    decision: str,
+    reason: str,
+    salvage_minutes: float | None = None,
+    calibration_factor: float = 1.0,
+) -> dict:
     return {
         "id": c.id,
         "title": c.title,
         "importance": c.importance,
-        "remaining_minutes": remaining_minutes(c),
+        "remaining_minutes": remaining_minutes(c, calibration_factor),
         "stakeholder": c.stakeholder,
         "decision": decision,
         "reason": reason,
         "salvage_minutes": salvage_minutes,
     }
-
 
 def _result(plan: dict, capacity: float, required: float, deficit: float, decisions: list[dict]) -> dict:
     return {

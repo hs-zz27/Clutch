@@ -54,6 +54,14 @@ async def run_agent(db: AsyncSession, goal: str) -> dict:
         resp = await client.aio.models.generate_content(
             model=MODEL, contents=contents, config=config
         )
+        if not resp.candidates or resp.candidates[0].content is None:
+            return {
+                "final_message": (
+                    "I couldn't finish the triage just now - the model returned "
+                    "no usable response. Please try again."
+                ),
+                "trace": trace,
+            }
         candidate = resp.candidates[0]
         contents.append(candidate.content)
 

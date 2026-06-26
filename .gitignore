@@ -8,3 +8,5 @@ node_modules/
 dist/
 # Misc
 .DS_Store
+*.md
+!ReadMe.md

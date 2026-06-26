@@ -118,6 +118,11 @@ User text:
         raise HTTPException(502, "Failed to parse commitments from the text")
     if not parsed:
         return []
+    # Bulk capture must never set dependencies. The response schema exposes
+    # depends_on_id, so the model *could* emit one; persisting an unvalidated
+    # FK would raise IntegrityError -> 500. Strip it defensively.
+    for item in parsed:
+        item.depends_on_id = None
     created = await service.create_commitments(db, parsed)
     for obj in created:
         await ledger_service.record(
