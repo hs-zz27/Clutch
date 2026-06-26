@@ -9,4 +9,4 @@ dist/
 # Misc
 .DS_Store
 *.md
-!ReadMe.md
+!README.md
