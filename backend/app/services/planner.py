@@ -12,16 +12,22 @@ Three upgrades layer on top of the original earliest-deadline-first pass:
   - feature #4: a learned calibration_factor scales every estimate toward how
     this person actually works (1.0 = no adjustment / not enough history yet).
 
+Phase 6.5: when a work policy (+ busy blocks) is supplied, the forward pass
+projects finishes on REAL focus time (skipping nights / meetings) via
+capacity.advance_working_minutes, so the plan agrees with the capacity meter
+instead of assuming the user works straight through the night. Without a
+policy it falls back to the original raw wall-clock behaviour.
+
 Everything degrades gracefully: no dependencies => earliest-deadline-first; no
 worst-case estimate => 1.5x the expected value; no history => factor 1.0.
 """
 import datetime
 
-from app.models.commitment import Commitment, Status
+from app.models.commitment import Commitment
+from app.services import capacity as capacity_service
 
 # multiplier applied to the expected estimate when no explicit worst case is set
 DEFAULT_P80_MULTIPLIER = 1.5
-
 
 def _effort_p80(commitment: Commitment, calibration_factor: float = 1.0) -> float:
     """Worst-case total effort. Falls back to a multiple of the expected value
@@ -33,7 +39,6 @@ def _effort_p80(commitment: Commitment, calibration_factor: float = 1.0) -> floa
         base = commitment.est_effort_minutes * DEFAULT_P80_MULTIPLIER
     return base * calibration_factor
 
-
 def remaining_minutes(
     commitment: Commitment, calibration_factor: float = 1.0
 ) -> float:
@@ -41,7 +46,6 @@ def remaining_minutes(
     total_time = commitment.est_effort_minutes * calibration_factor
     completed = total_time * commitment.progress_pct / 100.0
     return total_time - completed
-
 
 def remaining_minutes_p80(
     commitment: Commitment, calibration_factor: float = 1.0
@@ -51,7 +55,6 @@ def remaining_minutes_p80(
     completed = total * commitment.progress_pct / 100.0
     return total - completed
 
-
 def _make_probability(expected_deficit: float, worst_deficit: float) -> str:
     """Coarse 'will I make it?' signal from the expected vs worst-case deficit."""
     if worst_deficit <= 0:
@@ -59,7 +62,6 @@ def _make_probability(expected_deficit: float, worst_deficit: float) -> str:
     if expected_deficit <= 0:
         return "medium"    # makes it on the expected case, at risk on the worst
     return "low"           # behind even on the optimistic estimate
-
 
 def _topological_order(pending: list[Commitment]) -> list[int]:
     """Order ids so prerequisites come before dependents, tie-broken by
@@ -103,12 +105,25 @@ def _topological_order(pending: list[Commitment]) -> list[int]:
         order.extend(leftover)
     return order
 
-
 def build_plan(
     commitments: list[Commitment],
     now: datetime.datetime,
     calibration_factor: float = 1.0,
+    *,
+    busy_blocks: list[tuple[datetime.datetime, datetime.datetime]] | None = None,
+    policy: capacity_service.WorkPolicy | None = None,
 ) -> dict:
+    blocks = busy_blocks or []
+
+    def _advance(clock: datetime.datetime, minutes: float) -> datetime.datetime:
+        """Project a finish: real working time when a policy is set, else raw."""
+        if policy is not None:
+            return capacity_service.advance_working_minutes(
+                clock, minutes, blocks, policy
+            )
+        return clock + datetime.timedelta(minutes=minutes)
+
+    from app.models.commitment import Status
     pending = [
         c
         for c in commitments
@@ -149,8 +164,8 @@ def build_plan(
         rem_mins = remaining_minutes(c, calibration_factor)
         rem_mins_p80 = remaining_minutes_p80(c, calibration_factor)
 
-        projected_finish = clock + datetime.timedelta(minutes=rem_mins)
-        projected_finish_p80 = clock_p80 + datetime.timedelta(minutes=rem_mins_p80)
+        projected_finish = _advance(clock, rem_mins)
+        projected_finish_p80 = _advance(clock_p80, rem_mins_p80)
         latest_start = eff_latest_start.get(
             cid, c.deadline - datetime.timedelta(minutes=rem_mins)
         )

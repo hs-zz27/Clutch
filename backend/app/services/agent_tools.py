@@ -67,9 +67,14 @@ async def get_commitments(db: AsyncSession, args: dict) -> dict:
 async def run_plan(db: AsyncSession, args: dict) -> dict:
     rows = await commitments_service.list_commitments(db)
     calib = await calibration_service.get_calibration(db)
+    blocks = await busy_service.list_blocks(db)
     return _jsonable(
         planner_service.build_plan(
-            list(rows), _now(), calibration_factor=calib["effective_factor"]
+            list(rows),
+            _now(),
+            calibration_factor=calib["effective_factor"],
+            busy_blocks=[(b.start, b.end) for b in blocks],
+            policy=capacity_service.policy_from_settings(),
         )
     )
 

@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from pydantic import BaseModel
+import logging
 
 from app.core.db import get_db
 from app.schemas.commitment import CommitmentCreate, CommitmentUpdate, CommitmentRead
 from app.core.gemini import client, GeminiUnavailable
 from app.services import commitments as service
 from app.services import ledger as ledger_service
+
+logger = logging.getLogger("clutch.commitments")
 
 class ParseRequest(BaseModel):
     text: str
@@ -115,9 +118,15 @@ User text:
         )
         parsed: list[CommitmentCreate] = list(response.parsed or [])
     except GeminiUnavailable as e:
+        logger.warning("Commitment parse unavailable: %s", e)
         raise HTTPException(status_code=503, detail=str(e))
-    except Exception:
-        raise HTTPException(502, "Failed to parse commitments from the text")
+    except Exception as e:
+        # Surface the real cause instead of swallowing it into a blank 502.
+        logger.exception("Commitment parse failed (model=gemini-2.5-flash)")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to parse commitments: {type(e).__name__}: {e}",
+        )
     if not parsed:
         return []
     # Bulk capture must never set dependencies. The response schema exposes

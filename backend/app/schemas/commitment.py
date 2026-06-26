@@ -6,8 +6,8 @@ class CommitmentCreate(BaseModel):
     title: str
     description: str | None = None
     deadline: datetime
-    est_effort_minutes: int = Field(default=60, gt=0)        # expected (p50), positive
-    effort_p80_minutes: int | None = Field(default=None, gt=0)  # worst-case (p80)
+    est_effort_minutes: int = Field(default=60, ge=1)        # expected (p50), positive
+    effort_p80_minutes: int | None = Field(default=None, ge=1)  # worst-case (p80)
     importance: int = Field(default=3, ge=1, le=5)           # 1–5 only
     stakeholder: str | None = None
     min_viable_definition: str | None = None
@@ -17,9 +17,9 @@ class CommitmentUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     deadline: datetime | None = None
-    est_effort_minutes: int | None = Field(default=None, gt=0)
-    effort_p80_minutes: int | None = Field(default=None, gt=0)
-    actual_minutes: int | None = Field(default=None, gt=0)   # recorded on completion
+    est_effort_minutes: int | None = Field(default=None, ge=1)
+    effort_p80_minutes: int | None = Field(default=None, ge=1)
+    actual_minutes: int | None = Field(default=None, ge=1)   # recorded on completion
     importance: int | None = Field(default=None, ge=1, le=5)
     stakeholder: str | None = None
     min_viable_definition: str | None = None
