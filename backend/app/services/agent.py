@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
 
-from app.core.gemini import client
+from app.core.gemini import client, GeminiUnavailable
 from app.services import agent_tools
 
 MODEL = "gemini-2.5-flash"
@@ -36,7 +37,17 @@ How to work:
    - note any renegotiation drafts you prepared.
    - end with the single most urgent next action.
 
-Be honest and decisive. Never invent commitments or numbers - only use what the tools return."""
+Be honest and decisive. Never invent commitments or numbers - only use what the tools return.
+
+Write the final answer for a stressed, non-technical person. Rules:
+- No jargon. Never say "deficit", "capacity", "p80", "calibration factor", or "feasible".
+  Instead say things like "you're behind by about 2 hours", "free time", "worst case",
+  "you're on track".
+- Start with the bottom line in ONE short sentence (e.g. "Good news - you've got enough time.").
+- Then a short bulleted list of what to do, most urgent first. Use "- " bullets and **bold**
+  only on the task name; the app renders Markdown.
+- Keep it under ~120 words. Warm, direct, encouraging. No ALL-CAPS labels like "VERDICT".
+"""
 
 
 async def run_agent(db: AsyncSession, goal: str) -> dict:
@@ -51,9 +62,12 @@ async def run_agent(db: AsyncSession, goal: str) -> dict:
     trace: list[dict] = []
 
     for _ in range(MAX_STEPS):
-        resp = await client.aio.models.generate_content(
-            model=MODEL, contents=contents, config=config
-        )
+        try:
+            resp = await client.aio.models.generate_content(
+                model=MODEL, contents=contents, config=config
+            )
+        except GeminiUnavailable as e:
+            raise HTTPException(status_code=503, detail=str(e))
         if not resp.candidates or resp.candidates[0].content is None:
             return {
                 "final_message": (

@@ -6,7 +6,8 @@ commitments) happens in the API layer so this stays a pure, testable function.
 """
 from __future__ import annotations
 
-from app.core.gemini import client
+from fastapi import HTTPException
+from app.core.gemini import client, GeminiUnavailable
 from app.models.commitment import Commitment
 from app.schemas.decompose import SubtaskSuggestion
 
@@ -33,12 +34,15 @@ async def suggest_subtasks(commitment: Commitment) -> list[SubtaskSuggestion]:
         effort=commitment.est_effort_minutes,
         mvd=commitment.min_viable_definition or "not specified",
     )
-    resp = await client.aio.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": list[SubtaskSuggestion],
-        },
-    )
+    try:
+        resp = await client.aio.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": list[SubtaskSuggestion],
+            },
+        )
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return list(resp.parsed or [])

@@ -14,7 +14,7 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.gemini import client
+from app.core.gemini import client, GeminiUnavailable
 from app.schemas.commitment import CommitmentCreate, CommitmentRead
 from app.services import commitments as service
 from app.services import ledger as ledger_service
@@ -72,6 +72,8 @@ Extract every distinct task you can see. If none are present, return an empty li
             },
         )
         parsed: list[CommitmentCreate] = list(resp.parsed or [])
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception:
         raise HTTPException(502, "Failed to read commitments from the image")
 

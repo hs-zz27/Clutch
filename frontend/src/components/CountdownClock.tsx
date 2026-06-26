@@ -26,11 +26,7 @@ export function CountdownClock({ target, label, className }: Props) {
   const urgent = overdue || mins <= 60
 
   const color =
-    tone === 'coral'
-      ? 'text-coral text-glow-coral'
-      : tone === 'amber'
-        ? 'text-amber text-glow-amber'
-        : 'text-ember text-glow-ember'
+    tone === 'coral' ? 'text-coral' : tone === 'amber' ? 'text-amber' : 'text-ember'
 
   return (
     <div className={cx('flex flex-col', className)}>

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.core.db import get_db
 from app.schemas.commitment import CommitmentCreate, CommitmentUpdate, CommitmentRead
-from app.core.gemini import client
+from app.core.gemini import client, GeminiUnavailable
 from app.services import commitments as service
 from app.services import ledger as ledger_service
 
@@ -114,6 +114,8 @@ User text:
             },
         )
         parsed: list[CommitmentCreate] = list(response.parsed or [])
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception:
         raise HTTPException(502, "Failed to parse commitments from the text")
     if not parsed:

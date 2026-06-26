@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.core.gemini import client
+from fastapi import HTTPException
+from app.core.gemini import client, GeminiUnavailable
 from app.models.commitment import Commitment
 
 MODEL = "gemini-2.5-flash"
@@ -81,7 +82,10 @@ async def draft_message(
         mvd=commitment.min_viable_definition or "not specified",
         relationship=_relationship_block(stakeholder_context),
     )
-    resp = await client.aio.models.generate_content(model=MODEL, contents=prompt)
+    try:
+        resp = await client.aio.models.generate_content(model=MODEL, contents=prompt)
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return _split_subject_body(
         resp.text or "", fallback_subject=f"Re: {commitment.title}"
     )

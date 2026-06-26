@@ -22,16 +22,16 @@ export function CapacityMeter({ available, required }: { available: number; requ
           <div>{formatMinutes(required)} required</div>
         </div>
       </div>
-      <div className="relative mt-3 h-3 overflow-hidden rounded-full border border-line-soft bg-ink">
-        <div className="absolute inset-y-0 left-0 bg-teal/70" style={{ width: `${availPct}%` }} />
+      <div className="relative mt-3 h-4 overflow-hidden rounded-full border-2 border-line bg-surface">
+        <div className="absolute inset-y-0 left-0 bg-teal" style={{ width: `${availPct}%` }} />
         <div
-          className={cx('absolute inset-y-0', deficit > 0 ? 'bg-coral/60' : 'bg-transparent')}
+          className={cx('absolute inset-y-0', deficit > 0 ? 'bg-coral' : 'bg-transparent')}
           style={{ left: `${availPct}%`, width: `${Math.max(0, reqPct - availPct)}%` }}
         />
       </div>
       <div className="mt-1.5 flex items-center gap-4 font-mono text-[10px] uppercase tracking-wide text-faint">
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-teal/70" /> capacity</span>
-        {deficit > 0 && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-coral/60" /> shortfall</span>}
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-line bg-teal" /> capacity</span>
+        {deficit > 0 && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm border border-line bg-coral" /> shortfall</span>}
       </div>
     </div>
   )

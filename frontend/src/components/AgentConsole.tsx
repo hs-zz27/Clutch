@@ -4,6 +4,7 @@ import { Bot, ChevronDown, Play, Terminal } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, ErrorNote, Panel } from './ui'
 import { cx } from '../lib/format'
+import { MarkdownLite } from './MarkdownLite'
 import type { AgentResponse, AgentTraceStep } from '../types'
 
 const DEFAULT_GOAL = "I'm running out of time. Tell me what to do."
@@ -33,10 +34,10 @@ function TraceCard({ step, index }: { step: AgentTraceStep; index: number }) {
         <div className="space-y-2 border-t border-line-soft px-3 py-2 text-sm">
           {thought && <p className="text-muted">{thought}</p>}
           {step.tool_input != null && (
-            <pre className="overflow-x-auto rounded bg-ink p-2 font-mono text-xs text-faint">{prettyValue(step.tool_input)}</pre>
+            <pre className="overflow-x-auto rounded-lg border-2 border-line bg-line p-2 font-mono text-xs text-ink-2">{prettyValue(step.tool_input)}</pre>
           )}
           {observation != null && (
-            <pre className="overflow-x-auto rounded bg-ink p-2 font-mono text-xs text-paper/80">{prettyValue(observation)}</pre>
+            <pre className="overflow-x-auto rounded-lg border-2 border-line bg-line p-2 font-mono text-xs text-ink-2">{prettyValue(observation)}</pre>
           )}
         </div>
       )}
@@ -60,12 +61,12 @@ export function AgentConsole() {
 
   return (
     <Panel
-      title="Triage agent"
+      title="Ask Clutch"
       icon={<Bot className="h-4 w-4 text-ember" />}
       rail="iris"
       actions={
         <Button variant="ember" loading={run.isPending} onClick={() => run.mutate()}>
-          <Play className="h-4 w-4" /> Run triage
+          <Play className="h-4 w-4" /> Ask
         </Button>
       }
     >
@@ -75,27 +76,30 @@ export function AgentConsole() {
         onChange={(e) => setGoal(e.target.value)}
         placeholder={DEFAULT_GOAL}
       />
-      <p className="mt-2 font-mono text-xs text-faint">
-        The agent reads your commitments + capacity, decides do / minimize / defer / drop, and rewrites the plan.
+      <p className="mt-2 text-xs text-muted">
+        Ask in plain English — like “what should I drop?” or “will I make everything?” Clutch looks at
+        your tasks and the time you actually have, then tells you what to do next.
       </p>
 
       {run.isError && <div className="mt-3"><ErrorNote>{(run.error as ApiError)?.detail ?? 'Agent run failed.'}</ErrorNote></div>}
 
       {result && (
         <div className="mt-4 space-y-3">
-          <div className="rounded-lg border border-ember/40 bg-ember/10 px-3 py-3">
-            <div className="mb-1 flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-ember">
-              <Terminal className="h-3.5 w-3.5" /> verdict
+          <div className="rounded-lg border-2 border-line bg-ember/10 px-3 py-3">
+            <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-ember">
+              <Terminal className="h-3.5 w-3.5" /> what to do
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-paper">{result.final_message}</p>
+            <MarkdownLite text={result.final_message} />
           </div>
           {result.trace?.length > 0 && (
-            <div>
-              <div className="mb-1.5 font-mono text-xs uppercase tracking-wide text-faint">reasoning trace</div>
-              <div className="space-y-1.5">
+            <details className="group rounded-lg">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-faint hover:text-muted">
+                <ChevronDown className="h-3.5 w-3.5" /> see how Clutch worked it out
+              </summary>
+              <div className="mt-1.5 space-y-1.5">
                 {result.trace.map((s, i) => <TraceCard key={i} step={s} index={i} />)}
               </div>
-            </div>
+            </details>
           )}
         </div>
       )}

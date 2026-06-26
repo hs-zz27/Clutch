@@ -2,16 +2,25 @@ import type {
   AgentResponse,
   BusyBlock,
   BusyBlockCreate,
+  Calibration,
   Capacity,
   Commitment,
   CommitmentCreate,
   CommitmentUpdate,
+  DecomposeResult,
   Health,
   KnowledgeDocument,
   KnowledgeSearchResponse,
+  LedgerEntry,
+  Plan,
   RenegotiationGenerateRequest,
   RenegotiationMessage,
   RenegotiationUpdate,
+  Stakeholder,
+  StakeholderCreate,
+  StakeholderUpdate,
+  WhatIfResult,
+  WhatIfScenario,
 } from './types'
 
 const BASE = import.meta.env.VITE_CLUTCH_API_BASE ?? 'http://localhost:8000'
@@ -121,9 +130,36 @@ export const ClutchApi = {
     api<void>(`/commitments/${id}`, { method: 'DELETE' }),
   parseCommitments: (text: string) =>
     api<Commitment[]>('/commitments/parse', { method: 'POST', body: { text } }),
+  parseImage: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api<Commitment[]>('/commitments/parse-image', { method: 'POST', body: fd })
+  },
+  decompose: (id: number, persist = true) =>
+    api<DecomposeResult>(`/commitments/${id}/decompose`, { method: 'POST', body: { persist } }),
 
   // Planner
-  plan: () => api<import('./types').Plan>('/plan'),
+  plan: () => api<Plan>('/plan'),
+
+  // Calibration
+  getCalibration: () => api<Calibration>('/calibration'),
+
+  // Decision ledger
+  listLedger: (limit = 50) => api<LedgerEntry[]>('/ledger', { query: { limit } }),
+  undoLedger: (id: number) => api<{ ok: boolean }>(`/ledger/${id}/undo`, { method: 'POST' }),
+
+  // Stakeholders
+  listStakeholders: () => api<Stakeholder[]>('/stakeholders'),
+  createStakeholder: (body: StakeholderCreate) =>
+    api<Stakeholder>('/stakeholders', { method: 'POST', body }),
+  updateStakeholder: (id: number, body: StakeholderUpdate) =>
+    api<Stakeholder>(`/stakeholders/${id}`, { method: 'PATCH', body }),
+  deleteStakeholder: (id: number) =>
+    api<void>(`/stakeholders/${id}`, { method: 'DELETE' }),
+
+  // What-if simulator
+  runWhatIf: (scenario: WhatIfScenario) =>
+    api<WhatIfResult>('/whatif', { method: 'POST', body: scenario }),
 
   // Agent
   runAgent: (goal: string) =>
@@ -134,29 +170,17 @@ export const ClutchApi = {
   uploadDocument: (file: File) => {
     const fd = new FormData()
     fd.append('file', file)
-    return api<KnowledgeDocument>('/knowledge/documents', {
-      method: 'POST',
-      body: fd,
-    })
+    return api<KnowledgeDocument>('/knowledge/documents', { method: 'POST', body: fd })
   },
   searchKnowledge: (query: string) =>
-    api<KnowledgeSearchResponse>('/knowledge/search', {
-      method: 'POST',
-      body: { query },
-    }),
+    api<KnowledgeSearchResponse>('/knowledge/search', { method: 'POST', body: { query } }),
 
   // Renegotiation outbox
   listRenegotiations: () => api<RenegotiationMessage[]>('/renegotiation'),
   draftRenegotiation: (payload: RenegotiationGenerateRequest) =>
-    api<RenegotiationMessage>('/renegotiation/draft', {
-      method: 'POST',
-      body: payload,
-    }),
+    api<RenegotiationMessage>('/renegotiation/draft', { method: 'POST', body: payload }),
   editRenegotiation: (id: number, payload: RenegotiationUpdate) =>
-    api<RenegotiationMessage>(`/renegotiation/${id}`, {
-      method: 'PATCH',
-      body: payload,
-    }),
+    api<RenegotiationMessage>(`/renegotiation/${id}`, { method: 'PATCH', body: payload }),
   sendRenegotiation: (id: number) =>
     api<RenegotiationMessage>(`/renegotiation/${id}/send`, { method: 'POST' }),
 

@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import time
 
+from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
 from google.genai import types
 
-from app.core.gemini import client
+from app.core.gemini import client, GeminiUnavailable
 
 MODEL = "gemini-2.5-flash"
 STORE_DISPLAY_NAME = "clutch-knowledge"
@@ -68,17 +69,20 @@ def upload_document(path: str, display_name: str) -> None:
 async def search(query: str) -> dict:
     """Answer a query grounded on the knowledge store. Returns answer + citations."""
     store_name = await run_in_threadpool(_resolve_store_name)
-    resp = await client.aio.models.generate_content(
-        model=MODEL,
-        contents=query,
-        config=types.GenerateContentConfig(
-            tools=[
-                types.Tool(
-                    file_search=types.FileSearch(file_search_store_names=[store_name])
-                )
-            ]
-        ),
-    )
+    try:
+        resp = await client.aio.models.generate_content(
+            model=MODEL,
+            contents=query,
+            config=types.GenerateContentConfig(
+                tools=[
+                    types.Tool(
+                        file_search=types.FileSearch(file_search_store_names=[store_name])
+                    )
+                ]
+            ),
+        )
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return {"answer": resp.text or "", "citations": _extract_citations(resp)}
 
 

@@ -149,9 +149,9 @@ export function CapacityPanel() {
         <ul className="space-y-1.5">
           {blocks.data!.map((b) => (
             <li key={b.id} className="flex items-center gap-3 rounded-lg border border-line-soft bg-surface-2 px-3 py-2">
-              <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded bg-ink pt-0.5 shadow-sm border border-line-soft">
+              <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border-2 border-line bg-line pt-0.5">
                 <span className="font-mono text-[9px] font-600 uppercase tracking-widest text-ember">{monthShort(b.start)}</span>
-                <span className="font-display text-sm font-700 leading-none text-paper">{dayOfMonth(b.start)}</span>
+                <span className="font-display text-sm font-700 leading-none text-ink-2">{dayOfMonth(b.start)}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-600">{b.label || 'Busy'}</div>

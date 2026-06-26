@@ -36,10 +36,10 @@ export default function Landing() {
     <div className="min-h-full">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-ember font-display text-lg font-700 text-ink">
+          <span className="grid h-8 w-8 place-items-center rounded-lg border-2 border-line bg-ember font-display text-lg font-700 text-line">
             C
           </span>
-          <span className="font-display text-base font-700 tracking-tight">Clutch</span>
+          <span className="font-display text-base font-700 tracking-tight text-line">Clutch</span>
         </div>
         <HealthBadge />
       </header>
@@ -50,21 +50,18 @@ export default function Landing() {
             <Sparkles className="h-3.5 w-3.5 text-ember" />
             when everything is due at once
           </div>
-          <h1 className="font-display text-5xl font-700 leading-[1.02] tracking-tight sm:text-6xl">
+          <h1 className="font-display text-5xl font-700 leading-[1.05] tracking-tight sm:text-6xl">
             Stop drowning.
             <br />
-            <span className="text-ember-anim">Start triaging.</span>
+            <span className="mark">Start triaging.</span>
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
             Clutch is a deadline triage agent for the last-minute scramble. It weighs what
             you owe against the hours you actually have, then tells you what to finish, what
             to shrink, what to push, and what to cut — with the reasoning attached.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              to="/war-room"
-              className="btn btn-ember text-base"
-            >
+            <Link to="/war-room" className="btn btn-ember text-base">
               Open the War Room
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -77,7 +74,7 @@ export default function Landing() {
                   <span className="font-mono text-xs">0{i + 1}</span>
                   <f.icon className="h-4 w-4 text-ember" />
                 </div>
-                <div className="mt-2 font-display text-sm font-700">{f.label}</div>
+                <div className="mt-2 font-display text-sm font-700 text-line">{f.label}</div>
                 <p className="mt-1 text-xs leading-snug text-muted">{f.text}</p>
               </div>
             ))}
@@ -85,7 +82,7 @@ export default function Landing() {
         </div>
 
         {/* sample triage card — product peek */}
-        <div className="panel rail-coral reveal overflow-hidden">
+        <div className="panel rail-coral reveal overflow-hidden hover-lift">
           <div className="panel-head">
             <h3 className="panel-title">Triage · sample</h3>
             <Chip tone="coral">deficit 95m</Chip>
@@ -121,7 +118,7 @@ export default function Landing() {
           {DECISIONS.map((d) => (
             <div key={d.key} className={cx('panel p-5 hover-lift', `rail-${d.tone}`)}>
               <Chip tone={d.tone}>{d.key}</Chip>
-              <h4 className="mt-3 font-display text-lg font-700">{d.title}</h4>
+              <h4 className="mt-3 font-display text-lg font-700 text-line">{d.title}</h4>
               <p className="mt-1 text-sm leading-snug text-muted">{d.blurb}</p>
             </div>
           ))}

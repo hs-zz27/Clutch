@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ListTodo, Pencil, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { ImagePlus, ListTodo, ListTree, Pencil, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, Chip, EmptyState, ErrorNote, Label, Modal, Panel, Spinner } from './ui'
 import { CommitmentForm } from './CommitmentForm'
@@ -10,9 +10,6 @@ import type { Commitment, CommitmentCreate, CommitmentStatus } from '../types'
 
 const STATUS_OPTIONS: CommitmentStatus[] = ['not_started', 'in_progress', 'done', 'deferred', 'dropped']
 
-// Module-scope so the overdue check (which reads the clock) stays out of the
-// component render body — keeps the purity rule happy while still reflecting
-// "now" on every render.
 function isOverdue(deadline: string, closed: boolean): boolean {
   return !closed && new Date(deadline).getTime() < Date.now()
 }
@@ -30,37 +27,35 @@ export function CommitmentsPanel() {
   }
 
   const list = useQuery({ queryKey: ['commitments'], queryFn: ClutchApi.listCommitments })
+  const all = list.data ?? []
 
   const parse = useMutation({
     mutationFn: (text: string) => ClutchApi.parseCommitments(text),
-    onSuccess: () => {
-      setNlText('')
-      refresh()
-    },
+    onSuccess: () => { setNlText(''); refresh() },
+  })
+  const parseImg = useMutation({
+    mutationFn: (file: File) => ClutchApi.parseImage(file),
+    onSuccess: refresh,
   })
   const create = useMutation({
     mutationFn: (p: CommitmentCreate) => ClutchApi.createCommitment(p),
-    onSuccess: () => {
-      setShowCreate(false)
-      refresh()
-    },
+    onSuccess: () => { setShowCreate(false); refresh() },
   })
   const update = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Parameters<typeof ClutchApi.updateCommitment>[1] }) =>
       ClutchApi.updateCommitment(id, payload),
-    onSuccess: () => {
-      setEditing(null)
-      refresh()
-    },
+    onSuccess: () => { setEditing(null); refresh() },
   })
   const remove = useMutation({
     mutationFn: (id: number) => ClutchApi.deleteCommitment(id),
     onSuccess: refresh,
   })
+  const decompose = useMutation({
+    mutationFn: (id: number) => ClutchApi.decompose(id, true),
+    onSuccess: refresh,
+  })
 
-  const rows = [...(list.data ?? [])].sort(
-    (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime(),
-  )
+  const rows = [...all].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
 
   return (
     <Panel
@@ -73,7 +68,7 @@ export function CommitmentsPanel() {
         </Button>
       }
     >
-      {/* natural-language capture */}
+      {/* natural-language + screenshot capture */}
       <div className="mb-4 rounded-lg border border-line-soft bg-ink-2 p-3">
         <Label>Brain dump</Label>
         <textarea
@@ -82,20 +77,28 @@ export function CommitmentsPanel() {
           value={nlText}
           onChange={(e) => setNlText(e.target.value)}
         />
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between gap-2">
           <span className="flex items-center gap-1 font-mono text-xs text-faint">
-            <Sparkles className="h-3 w-3 text-ember" /> parsed by Gemini into structured commitments
+            <Sparkles className="h-3 w-3 text-ember" /> parsed by Gemini
           </span>
-          <Button
-            variant="ember"
-            loading={parse.isPending}
-            disabled={!nlText.trim()}
-            onClick={() => parse.mutate(nlText.trim())}
-          >
-            <Wand2 className="h-4 w-4" /> Parse
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <label className="btn btn-ghost cursor-pointer px-2 py-1" title="Add from a screenshot">
+              {parseImg.isPending ? <Spinner /> : <ImagePlus className="h-4 w-4" />}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) parseImg.mutate(f); e.target.value = '' }}
+              />
+            </label>
+            <Button variant="ember" loading={parse.isPending} disabled={!nlText.trim()} onClick={() => parse.mutate(nlText.trim())}>
+              <Wand2 className="h-4 w-4" /> Parse
+            </Button>
+          </div>
         </div>
-        {parse.isError && <div className="mt-2"><ErrorNote>{(parse.error as ApiError)?.detail ?? 'Could not parse text.'}</ErrorNote></div>}
+        {(parse.isError || parseImg.isError) && (
+          <div className="mt-2"><ErrorNote>{((parse.error || parseImg.error) as ApiError)?.detail ?? 'Could not parse input.'}</ErrorNote></div>
+        )}
       </div>
 
       {list.isLoading ? (
@@ -109,18 +112,19 @@ export function CommitmentsPanel() {
           {rows.map((c) => {
             const sm = STATUS_META[c.status]
             const closed = c.status === 'done' || c.status === 'dropped'
+            const dep = c.depends_on_id != null ? all.find((x) => x.id === c.depends_on_id) : undefined
             return (
               <li key={c.id} className="rounded-lg border border-line-soft bg-ink-2 px-3 py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className={cx('truncate font-600', closed && 'text-faint line-through')}>{c.title}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-faint">
-                      <span className={cx(isOverdue(c.deadline, closed) && 'text-coral')}>
-                        {relativeDeadline(c.deadline)}
-                      </span>
+                      <span className={cx(isOverdue(c.deadline, closed) && 'text-coral')}>{relativeDeadline(c.deadline)}</span>
                       <span>{formatMinutes(c.est_effort_minutes)} effort</span>
+                      {c.effort_p80_minutes != null && <span title="Worst-case (p80) effort">{formatMinutes(c.effort_p80_minutes)} p80</span>}
                       <span>{c.progress_pct}% done</span>
                       {c.stakeholder && <span className="text-muted">@{c.stakeholder}</span>}
+                      {dep && <span className="text-iris" title={`Depends on: ${dep.title}`}>↳ {dep.title}</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -148,6 +152,9 @@ export function CommitmentsPanel() {
                     onMouseUp={(e) => update.mutate({ id: c.id, payload: { progress_pct: Number((e.target as HTMLInputElement).value) } })}
                     onTouchEnd={(e) => update.mutate({ id: c.id, payload: { progress_pct: Number((e.target as HTMLInputElement).value) } })}
                   />
+                  <button className="btn btn-ghost px-2 py-1" title="Break into subtasks" disabled={decompose.isPending} onClick={() => decompose.mutate(c.id)}>
+                    <ListTree className="h-3.5 w-3.5" />
+                  </button>
                   <button className="btn btn-ghost px-2 py-1" title="Edit" onClick={() => setEditing(c)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -161,9 +168,11 @@ export function CommitmentsPanel() {
         </ul>
       )}
 
+      {decompose.isError && <div className="mt-3"><ErrorNote>{(decompose.error as ApiError)?.detail ?? 'Could not decompose.'}</ErrorNote></div>}
+
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New commitment">
         {create.isError && <div className="mb-3"><ErrorNote>{(create.error as ApiError)?.detail ?? 'Could not create.'}</ErrorNote></div>}
-        <CommitmentForm submitting={create.isPending} submitLabel="Add commitment" onSubmit={(p) => create.mutate(p)} />
+        <CommitmentForm commitments={all} submitting={create.isPending} submitLabel="Add commitment" onSubmit={(p) => create.mutate(p)} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit commitment">
@@ -172,6 +181,7 @@ export function CommitmentsPanel() {
             {update.isError && <div className="mb-3"><ErrorNote>{(update.error as ApiError)?.detail ?? 'Could not update.'}</ErrorNote></div>}
             <CommitmentForm
               initial={editing}
+              commitments={all}
               submitting={update.isPending}
               submitLabel="Save changes"
               onSubmit={(p) => update.mutate({ id: editing.id, payload: p })}
