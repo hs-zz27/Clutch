@@ -20,12 +20,17 @@ optional means the engine never breaks when no calendar data is available.
 Calibration: callers can pass the learned calibration_factor (Phase 9 feature
 #4) so required/remaining minutes match GET /plan. Defaults to 1.0 (identity),
 so behaviour is unchanged when there is no history.
+
+The embedded plan is built on the SAME real working-time basis as GET /plan
+when busy_blocks + policy are supplied, so the triage 'plan' never contradicts
+the War Room timeline. Without them it falls back to raw wall-clock.
 """
 from __future__ import annotations
 
 import datetime
 
 from app.models.commitment import Commitment, Status
+from app.services import capacity as capacity_service
 from app.services.planner import build_plan, remaining_minutes
 
 # fraction of full effort a "minimum viable" version is assumed to take
@@ -50,8 +55,20 @@ def run_triage(
     now: datetime.datetime,
     capacity_minutes: float | None = None,
     calibration_factor: float = 1.0,
+    *,
+    busy_blocks: list[tuple[datetime.datetime, datetime.datetime]] | None = None,
+    policy: capacity_service.WorkPolicy | None = None,
 ) -> dict:
-    plan = build_plan(commitments, now, calibration_factor)
+    # Build the embedded plan on real focus time when a policy is supplied, so
+    # it agrees with GET /plan instead of assuming work straight through the
+    # night. Degrades to raw wall-clock when no calendar data is available.
+    plan = build_plan(
+        commitments,
+        now,
+        calibration_factor,
+        busy_blocks=busy_blocks,
+        policy=policy,
+    )
 
     pending = pending_commitments(commitments)
 

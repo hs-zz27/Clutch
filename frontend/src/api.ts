@@ -12,6 +12,7 @@ import type {
   KnowledgeDocument,
   KnowledgeSearchResponse,
   LedgerEntry,
+  LedgerPage,
   Plan,
   RenegotiationGenerateRequest,
   RenegotiationMessage,

@@ -7,6 +7,7 @@ snapshot of the prior state, and undo them. All snapshots are JSON-safe
 from __future__ import annotations
 
 import datetime
+import logging
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +31,6 @@ _COMMITMENT_FIELDS = (
     "progress_pct",
 )
 
-
 def snapshot_commitment(c) -> dict:
     """JSON-safe snapshot of a commitment's editable fields."""
     snap: dict = {}
@@ -42,7 +42,6 @@ def snapshot_commitment(c) -> dict:
             v = v.value
         snap[f] = v
     return snap
-
 
 def _coerce_commitment(snap: dict) -> dict:
     out: dict = {}
@@ -56,7 +55,6 @@ def _coerce_commitment(snap: dict) -> dict:
             v = Status(v)
         out[f] = v
     return out
-
 
 async def record(
     db: AsyncSession,
@@ -85,7 +83,6 @@ async def record(
         await db.refresh(entry)
     return entry
 
-
 async def count_entries(db: AsyncSession) -> int:
     result = await db.execute(select(func.count()).select_from(DecisionLedger))
     return int(result.scalar_one())
@@ -100,7 +97,6 @@ async def list_entries(
         .offset(offset)
     )
     return list(result.scalars().all())
-
 
 async def undo(db: AsyncSession, entry_id: int) -> dict:
     entry = await db.get(DecisionLedger, entry_id)
@@ -130,14 +126,12 @@ async def undo(db: AsyncSession, entry_id: int) -> dict:
             "error": "Undo could not be applied safely; nothing was changed.",
         }
 
-
 async def _existing_commitment_id(db: AsyncSession, cid: int | None) -> int | None:
     """Return cid only if that commitment still exists, else None."""
     if cid is None:
         return None
     obj = await db.get(Commitment, cid)
     return cid if obj is not None else None
-
 
 async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
     if entry.target_type != "commitment":

@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -41,7 +40,7 @@ class Settings(BaseSettings):
     # The Gemini Live (native-audio) model the voice agent speaks through, and
     # the prebuilt voice it uses. "Charon" is a calm, low register that suits a
     # crisis chief-of-staff. Both are overridable via env.
-    GEMINI_LIVE_MODEL: str = "gemini-2.5-flash-native-audio-preview-09-2025"
+    GEMINI_LIVE_MODEL: str = "gemini-live-2.5-flash-native-audio"
     GEMINI_LIVE_VOICE: str = "Charon"
 
     # Default LiveKit room the browser and the agent meet in. This is a
@@ -53,6 +52,5 @@ class Settings(BaseSettings):
     def voice_enabled(self) -> bool:
         """True only when LiveKit transport is fully configured."""
         return bool(self.LIVEKIT_URL and self.LIVEKIT_API_KEY and self.LIVEKIT_API_SECRET)
-
 
 settings = Settings()

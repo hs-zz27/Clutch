@@ -133,6 +133,8 @@ def simulate(
         now,
         capacity_minutes=base_capacity_minutes,
         calibration_factor=calibration_factor,
+        busy_blocks=blocks,
+        policy=policy,
     )
 
     scenario_commitments = apply_scenario(commitments, scenario)
@@ -152,6 +154,8 @@ def simulate(
         now,
         capacity_minutes=scenario_capacity,
         calibration_factor=calibration_factor,
+        busy_blocks=blocks,
+        policy=policy,
     )
 
     diff = {

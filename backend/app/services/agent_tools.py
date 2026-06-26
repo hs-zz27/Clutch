@@ -101,12 +101,15 @@ async def run_triage(db: AsyncSession, args: dict) -> dict:
     pending = triage_service.pending_commitments(rows)
     capacity = await _real_capacity(db, pending, now)
     calib = await calibration_service.get_calibration(db)
+    blocks = await busy_service.list_blocks(db)
     return _jsonable(
         triage_service.run_triage(
             rows,
             now,
             capacity_minutes=capacity,
             calibration_factor=calib["effective_factor"],
+            busy_blocks=[(b.start, b.end) for b in blocks],
+            policy=capacity_service.policy_from_settings(),
         )
     )
 
