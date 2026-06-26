@@ -24,7 +24,7 @@ export default function Crisis() {
             <ArrowLeft className="h-4 w-4" /> Back to War Room
           </Link>
           <h1 className="font-display text-3xl font-700 tracking-tight text-paper">
-            Voice Crisis Mode
+            Voice Mode
           </h1>
           <p className="max-w-xl text-muted">
             Hands-free triage for when you can’t even type. Tap the mic and talk

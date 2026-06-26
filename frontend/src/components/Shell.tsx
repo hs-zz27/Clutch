@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { Mic } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
+import { BookOpen, Mic, Swords } from 'lucide-react'
 import { HealthBadge } from './HealthBadge'
+import { cx } from '../lib/format'
 
 function LiveClock() {
   const [now, setNow] = useState(() => new Date())
@@ -10,13 +11,19 @@ function LiveClock() {
     return () => clearInterval(id)
   }, [])
   return (
-    <span className="font-mono text-sm tabular-nums text-muted">
+    <span className="hidden font-mono text-sm tabular-nums text-muted sm:inline">
       {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </span>
   )
 }
 
-/** Sticky app frame: brand mark + crisis entry + live clock + health badge. */
+const navLink = ({ isActive }: { isActive: boolean }) =>
+  cx(
+    'hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-600 transition-colors sm:inline-flex',
+    isActive ? 'bg-surface-2 text-paper' : 'text-muted hover:text-paper',
+  )
+
+/** Sticky app frame: brand mark + primary nav + voice entry + live clock + health badge. */
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-full">
@@ -27,22 +34,24 @@ export function Shell({ children }: { children: ReactNode }) {
               C
             </span>
             <span className="flex flex-col leading-none">
-              <span className="font-display text-base font-700 tracking-tight text-paper">
-                Clutch
-              </span>
-              <span className="text-[10px] font-600 uppercase tracking-[0.22em] text-faint">
-                deadline triage
-              </span>
+              <span className="font-display text-base font-700 tracking-tight text-paper">Clutch</span>
+              <span className="text-[10px] font-600 uppercase tracking-[0.22em] text-faint">deadline triage</span>
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <nav className="flex items-center gap-1.5">
+            <NavLink to="/war-room" className={navLink}>
+              <Swords className="h-4 w-4" /> War Room
+            </NavLink>
+            <NavLink to="/toolkit" className={navLink}>
+              <BookOpen className="h-4 w-4" /> Toolkit
+            </NavLink>
             <Link to="/crisis" className="btn btn-ember px-3 py-1.5 text-sm">
               <Mic className="h-4 w-4" />
-              <span className="hidden sm:inline">Crisis Mode</span>
+              <span className="hidden sm:inline">Voice Mode</span>
             </Link>
             <LiveClock />
             <HealthBadge />
-          </div>
+          </nav>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-5 py-6">{children}</main>

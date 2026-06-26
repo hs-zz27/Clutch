@@ -1,16 +1,45 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ListChecks,
+  CalendarClock,
+  Route as RouteIcon,
+  Bot,
+  BookOpen,
+  Mic,
+} from 'lucide-react'
 import { Shell } from '../components/Shell'
 import { CountdownClock } from '../components/CountdownClock'
 import { CommitmentsPanel } from '../components/CommitmentsPanel'
 import { PlanTimeline } from '../components/PlanTimeline'
 import { AgentConsole } from '../components/AgentConsole'
 import { CapacityPanel } from '../components/CapacityPanel'
-import { RenegotiationOutbox } from '../components/RenegotiationOutbox'
-import { KnowledgePanel } from '../components/KnowledgePanel'
 import { Stat } from '../components/ui'
 import { ClutchApi } from '../api'
 import { formatMinutes } from '../lib/format'
+
+function SectionHead({ icon, title, hint }: { icon: ReactNode; title: string; hint: string }) {
+  return (
+    <div className="mb-2 flex items-start gap-2.5">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-ember">
+        {icon}
+      </span>
+      <div>
+        <h2 className="font-display text-base font-700 leading-tight tracking-tight text-paper">{title}</h2>
+        <p className="text-xs text-muted">{hint}</p>
+      </div>
+    </div>
+  )
+}
+
+const STEPS = [
+  { n: 1, title: 'List what you owe', hint: 'Add every deadline. Clutch estimates how long each will really take.' },
+  { n: 2, title: 'See the squeeze', hint: 'Compare required effort against the focus hours you actually have.' },
+  { n: 3, title: 'Act on it', hint: 'Follow the plan, ask the agent what to drop, or send an extension from the Toolkit.' },
+]
 
 export default function WarRoom() {
   const commitments = useQuery({ queryKey: ['commitments'], queryFn: ClutchApi.listCommitments })
@@ -60,16 +89,53 @@ export default function WarRoom() {
         </div>
       </section>
 
+      {/* how it works — quick orientation for new users */}
+      <section className="reveal mb-5 grid gap-3 rounded-xl border border-line-soft bg-surface-2/50 p-4 sm:grid-cols-3">
+        {STEPS.map((s) => (
+          <div key={s.n} className="flex items-start gap-2.5">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ember/15 font-mono text-xs font-700 text-ember">
+              {s.n}
+            </span>
+            <div>
+              <div className="text-sm font-600 text-paper">{s.title}</div>
+              <p className="text-xs text-muted">{s.hint}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+
       <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
-        <div className="space-y-5 stagger">
-          <CommitmentsPanel />
-          <PlanTimeline />
-          <AgentConsole />
+        <div className="space-y-6 stagger">
+          <div>
+            <SectionHead icon={<ListChecks className="h-4 w-4" />} title="What you owe" hint="Every task with its deadline, effort estimate and importance. Add or edit commitments here." />
+            <CommitmentsPanel />
+          </div>
+          <div>
+            <SectionHead icon={<RouteIcon className="h-4 w-4" />} title="Clutch's plan" hint="The order to work in, realistic (p80) time estimates, and whether you'll make every deadline." />
+            <PlanTimeline />
+          </div>
+          <div>
+            <SectionHead icon={<Bot className="h-4 w-4" />} title="Ask Clutch" hint="Ask 'what should I drop?' or 'am I going to make it?' and act on the agent's recommendation." />
+            <AgentConsole />
+          </div>
         </div>
-        <div className="space-y-5 stagger">
-          <CapacityPanel />
-          <RenegotiationOutbox />
-          <KnowledgePanel />
+        <div className="space-y-6 stagger">
+          <div>
+            <SectionHead icon={<CalendarClock className="h-4 w-4" />} title="Your capacity" hint="The focus hours you actually have before each deadline. Sync your calendar to block out busy time." />
+            <CapacityPanel />
+          </div>
+          <div className="panel p-4">
+            <h2 className="font-display text-base font-700 tracking-tight text-paper">More tools</h2>
+            <p className="mb-3 text-xs text-muted">Support features that live outside the live board.</p>
+            <div className="flex flex-col gap-2">
+              <Link to="/toolkit" className="btn btn-ghost justify-start">
+                <BookOpen className="h-4 w-4" /> Toolkit — docs & extension emails
+              </Link>
+              <Link to="/crisis" className="btn btn-ghost justify-start">
+                <Mic className="h-4 w-4" /> Voice Mode — hands-free triage
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </Shell>

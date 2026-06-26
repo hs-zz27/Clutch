@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, CalendarSync, Gauge, Plus, Trash2 } from 'lucide-react'
+import { CalendarDays, CalendarSync, Gauge, Plus, Trash2, X } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, EmptyState, ErrorNote, Label, Panel, Spinner } from './ui'
 import { CapacityMeter } from './CapacityMeter'
-import { formatDateTime, localInputToIso } from '../lib/format'
+import { DateTimeField } from './DateTimeField'
+import { dayOfMonth, formatDateTime, formatTime, localInputToIso, monthShort } from '../lib/format'
 
 export function CapacityPanel() {
   const qc = useQueryClient()
@@ -12,7 +13,14 @@ export function CapacityPanel() {
   const [end, setEnd] = useState('')
   const [label, setLabel] = useState('')
   const [adding, setAdding] = useState(false)
-  const [icsNote, setIcsNote] = useState<string | null>(null)
+  const [icsNote, setIcsNote] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (icsNote?.type === 'ok') {
+      const timer = setTimeout(() => setIcsNote(null), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [icsNote])
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['busy'] })
@@ -38,18 +46,19 @@ export function CapacityPanel() {
   const sync = useMutation({
     mutationFn: () => ClutchApi.syncIcs(),
     onSuccess: (res) => {
-      setIcsNote(`Imported ${(res as { imported?: number }).imported ?? 0} block(s) from the calendar feed.`)
+      setIcsNote({ type: 'ok', text: `Imported ${(res as { imported?: number }).imported ?? 0} block(s) from the calendar feed.` })
       refresh()
     },
     onError: (e) => {
       const err = e as ApiError
-      setIcsNote(
-        err.status === 503
+      setIcsNote({
+        type: 'err',
+        text: err.status === 503
           ? 'Calendar sync is not configured (optional ICS feature is off).'
           : err.status === 502
             ? 'Could not fetch or parse the configured calendar feed.'
             : err.detail || 'Calendar sync failed.',
-      )
+      })
     },
   })
 
@@ -73,7 +82,7 @@ export function CapacityPanel() {
           Add a pending commitment to compute available focus time.
         </div>
       ) : (
-        <div className="mb-4 rounded-lg border border-line-soft bg-ink-2 p-3">
+        <div className="mb-4 rounded-lg border border-line-soft bg-surface-2 p-3">
           <CapacityMeter available={available} required={required} />
           {capacity.data && (
             <div className="mt-2 font-mono text-[11px] text-faint">
@@ -83,7 +92,20 @@ export function CapacityPanel() {
         </div>
       )}
 
-      {icsNote && <div className="mb-3"><ErrorNote>{icsNote}</ErrorNote></div>}
+      {icsNote && (
+        <div
+          className={`mb-3 flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${
+            icsNote.type === 'ok'
+              ? 'border-teal/30 bg-teal/10 text-teal'
+              : 'border-coral/30 bg-coral/10 text-coral'
+          }`}
+        >
+          <div>{icsNote.text}</div>
+          <button onClick={() => setIcsNote(null)} className="mt-0.5 shrink-0 opacity-70 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <div className="mb-3 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-sm font-600 text-muted">
@@ -99,11 +121,11 @@ export function CapacityPanel() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Start</Label>
-              <input type="datetime-local" className="field" value={start} onChange={(e) => setStart(e.target.value)} />
+              <DateTimeField value={start} onChange={setStart} placeholder="Start time" />
             </div>
             <div>
               <Label>End</Label>
-              <input type="datetime-local" className="field" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <DateTimeField value={end} onChange={setEnd} placeholder="End time" />
             </div>
           </div>
           <div>
@@ -126,10 +148,14 @@ export function CapacityPanel() {
       ) : (
         <ul className="space-y-1.5">
           {blocks.data!.map((b) => (
-            <li key={b.id} className="flex items-center justify-between gap-2 rounded-lg border border-line-soft bg-ink-2 px-3 py-2">
-              <div className="min-w-0">
+            <li key={b.id} className="flex items-center gap-3 rounded-lg border border-line-soft bg-surface-2 px-3 py-2">
+              <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded bg-ink pt-0.5 shadow-sm border border-line-soft">
+                <span className="font-mono text-[9px] font-600 uppercase tracking-widest text-ember">{monthShort(b.start)}</span>
+                <span className="font-display text-sm font-700 leading-none text-paper">{dayOfMonth(b.start)}</span>
+              </div>
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-600">{b.label || 'Busy'}</div>
-                <div className="font-mono text-xs text-faint">{formatDateTime(b.start)} → {formatDateTime(b.end)}</div>
+                <div className="font-mono text-xs text-faint">{formatTime(b.start)} → {formatTime(b.end)}</div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {b.source !== 'manual' && <span className="chip border-iris/40 text-iris">{b.source}</span>}

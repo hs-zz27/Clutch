@@ -9,6 +9,8 @@ lets the drafter match the register to who is being written to.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.core.gemini import client
 from app.models.commitment import Commitment
 
@@ -30,6 +32,12 @@ Subject: <a concise subject line>
 <email body, under 120 words, plain text>
 
 Do not invent facts, dates, or commitments that are not given above."""
+
+def _format_deadline(dt: datetime) -> str:
+    """Human-readable deadline like '21 July 2026, 18:31' — no seconds, no raw ISO."""
+    # Day without leading zero, full month name, year, 24h time (no seconds).
+    return f"{dt.day} {dt.strftime('%B %Y, %H:%M')}"
+
 
 
 def _formality_word(formality: int | None) -> str:
@@ -68,7 +76,7 @@ async def draft_message(
         tone=tone,
         title=commitment.title,
         stakeholder=commitment.stakeholder or "the stakeholder",
-        deadline=commitment.deadline.isoformat(),
+        deadline=_format_deadline(commitment.deadline),
         importance=commitment.importance,
         mvd=commitment.min_viable_definition or "not specified",
         relationship=_relationship_block(stakeholder_context),

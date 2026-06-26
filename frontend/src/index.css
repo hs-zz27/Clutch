@@ -305,3 +305,59 @@ h1, h2, h3, h4 {
   }
   body::before { animation: none; }
 }
+
+/* --------------------------------------------------------------------- */
+/* Custom date-time picker (calendar popover)                            */
+/* --------------------------------------------------------------------- */
+.dt { position: relative; }
+.dt-trigger { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; text-align: left; }
+.dt-empty span { color: var(--color-faint); }
+
+.dt-pop {
+  position: absolute; z-index: 40; margin-top: 0.4rem; width: 17.5rem; padding: 0.8rem;
+  border-radius: 0.9rem; border: 1px solid var(--color-line); background: var(--color-surface-2);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.95);
+}
+.dt-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.dt-month { font-family: var(--font-display); font-size: 0.85rem; font-weight: 700; color: var(--color-paper); }
+.dt-nav {
+  display: inline-flex; align-items: center; justify-content: center; height: 1.8rem; width: 1.8rem;
+  border-radius: 0.55rem; color: var(--color-muted); transition: background 0.15s, color 0.15s;
+}
+.dt-nav:hover { background: var(--color-ink-2); color: var(--color-paper); }
+
+.dt-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dt-weekdays { margin-bottom: 0.3rem; }
+.dt-weekday {
+  display: flex; align-items: center; justify-content: center; padding: 0.15rem 0;
+  font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--color-faint);
+}
+.dt-day {
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
+  border-radius: 0.55rem; font-family: var(--font-mono); font-size: 0.78rem; color: var(--color-paper);
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+.dt-day:hover { background: var(--color-ink-2); }
+.dt-day-muted { color: var(--color-faint); opacity: 0.5; }
+.dt-day-today { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-ember) 60%, transparent); }
+.dt-day-sel, .dt-day-sel:hover { background: var(--color-ember); color: var(--color-ink); font-weight: 700; }
+
+.dt-time {
+  display: flex; align-items: center; gap: 0.5rem; margin-top: 0.7rem;
+  padding-top: 0.7rem; border-top: 1px solid var(--color-line-soft);
+}
+.dt-time-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--color-muted); }
+.dt-time-selects { display: inline-flex; align-items: center; gap: 0.3rem; }
+.dt-select {
+  appearance: none; border-radius: 0.5rem; border: 1px solid var(--color-line);
+  background: var(--color-ink-2); padding: 0.25rem 0.55rem; cursor: pointer;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-paper);
+}
+.dt-select:focus { outline: none; border-color: color-mix(in oklab, var(--color-ember) 70%, transparent); }
+.dt-colon { color: var(--color-faint); font-family: var(--font-mono); }
+.dt-now { margin-left: auto; padding: 0.2rem 0.45rem; border-radius: 0.45rem; font-size: 0.7rem; font-weight: 600; color: var(--color-ember); }
+.dt-now:hover { background: color-mix(in oklab, var(--color-ember) 14%, transparent); }
+.dt-foot { display: flex; justify-content: flex-end; margin-top: 0.55rem; }
+.dt-done { padding: 0.3rem 0.95rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 700; color: var(--color-ink); background: var(--color-ember); }
+.dt-done:hover { background: var(--color-ember-soft); }

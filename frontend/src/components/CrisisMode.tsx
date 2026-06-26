@@ -132,7 +132,7 @@ export function CrisisMode() {
 
   return (
     <Panel
-      title="Voice Crisis Mode"
+      title="Voice Mode"
       rail="ember"
       icon={<Radio className="h-4 w-4 text-ember" />}
       actions={
@@ -151,7 +151,7 @@ export function CrisisMode() {
 
       {!status.isLoading && !enabled && (
         <ErrorNote>
-          Voice Crisis Mode isn’t configured on the server yet. Set the LiveKit
+          Voice Mode isn’t configured on the server yet. Set the LiveKit
           credentials and run the voice worker to enable hands-free triage.
         </ErrorNote>
       )}

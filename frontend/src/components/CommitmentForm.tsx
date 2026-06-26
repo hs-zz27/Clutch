@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Label } from './ui'
 import { isoToLocalInput, localInputToIso } from '../lib/format'
+import { DateTimeField } from './DateTimeField'
 import type { Commitment, CommitmentCreate } from '../types'
 
 export function CommitmentForm({
@@ -48,7 +49,7 @@ export function CommitmentForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Deadline</Label>
-          <input type="datetime-local" className="field" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+          <DateTimeField value={deadline} onChange={setDeadline} />
         </div>
         <div>
           <Label>Effort (min)</Label>

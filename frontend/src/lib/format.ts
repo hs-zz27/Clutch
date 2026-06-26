@@ -72,3 +72,22 @@ export function isoToLocalInput(iso: string | null | undefined): string {
   const local = new Date(d.getTime() - off * 60000)
   return local.toISOString().slice(0, 16)
 }
+
+const MONTH_FMT = new Intl.DateTimeFormat(undefined, { month: 'short' })
+const TIME_FMT = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+
+export function dayOfMonth(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : String(d.getDate())
+}
+export function monthShort(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : MONTH_FMT.format(d)
+}
+export function formatTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : TIME_FMT.format(d)
+}
