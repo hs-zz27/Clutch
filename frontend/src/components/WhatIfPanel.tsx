@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Beaker, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { Beaker, EyeOff, Plus } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, Chip, ErrorNote, Label, Panel, Spinner } from './ui'
 import { cx, formatMinutes } from '../lib/format'

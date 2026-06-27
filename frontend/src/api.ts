@@ -11,7 +11,6 @@ import type {
   Health,
   KnowledgeDocument,
   KnowledgeSearchResponse,
-  LedgerEntry,
   LedgerPage,
   Plan,
   RenegotiationGenerateRequest,

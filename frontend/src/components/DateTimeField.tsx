@@ -53,9 +53,14 @@ export function DateTimeField({
   })
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (date) setView({ year: date.getFullYear(), month: date.getMonth() })
-  }, [date])
+  // Sync the visible month to the selected date when it changes — done during
+  // render (not in an effect) per the react-hooks/set-state-in-effect rule.
+  const dateKey = date ? `${date.getFullYear()}-${date.getMonth()}` : null
+  const [prevDateKey, setPrevDateKey] = useState(dateKey)
+  if (dateKey && dateKey !== prevDateKey) {
+    setPrevDateKey(dateKey)
+    setView({ year: date!.getFullYear(), month: date!.getMonth() })
+  }
 
   useEffect(() => {
     if (!open) return
