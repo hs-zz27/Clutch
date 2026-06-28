@@ -66,6 +66,22 @@ def upload_document(path: str, display_name: str) -> None:
         operation = client.operations.get(operation)
 
 
+def purge_documents_by_name(display_name: str) -> int:
+    """Delete every store document whose display name matches (blocking).
+
+    Returns how many were removed. Run via a background task / threadpool. The
+    catalog has no stored Gemini doc id, so we match on the display name we set
+    at upload time. Missing docs are a no-op; this is best-effort cleanup.
+    """
+    store_name = _resolve_store_name()
+    removed = 0
+    for doc in client.file_search_stores.documents.list(parent=store_name):
+        if getattr(doc, "display_name", None) == display_name:
+            client.file_search_stores.documents.delete(name=doc.name, force=True)
+            removed += 1
+    return removed
+
+
 async def search(query: str) -> dict:
     """Answer a query grounded on the knowledge store. Returns answer + citations."""
     store_name = await run_in_threadpool(_resolve_store_name)

@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, FileText, Search, Upload } from 'lucide-react'
+import { BookOpen, FileText, Search, Upload, X } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
-import { Button, EmptyState, ErrorNote, Panel, Spinner } from './ui'
+import { Button, EmptyState, ErrorNote, Modal, Panel, Spinner } from './ui'
 import { MarkdownLite } from './MarkdownLite'
 import { formatDateTime } from '../lib/format'
-import type { KnowledgeSearchResponse } from '../types'
+import type { KnowledgeDocument, KnowledgeSearchResponse } from '../types'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10 MB - keep in sync with the backend
 const ALLOWED_EXTENSIONS = [
@@ -39,6 +39,15 @@ export function KnowledgePanel() {
   const search = useMutation({
     mutationFn: () => ClutchApi.searchKnowledge(query.trim()),
     onSuccess: setAnswer,
+  })
+
+  const [pendingDelete, setPendingDelete] = useState<KnowledgeDocument | null>(null)
+  const remove = useMutation({
+    mutationFn: (id: number) => ClutchApi.deleteDocument(id),
+    onSuccess: () => {
+      setPendingDelete(null)
+      qc.invalidateQueries({ queryKey: ['documents'] })
+    },
   })
 
   function handlePicked(file: File | undefined) {
@@ -130,11 +139,53 @@ export function KnowledgePanel() {
                 <FileText className="h-4 w-4 shrink-0 text-faint" />
                 <span className="truncate text-sm">{d.filename}</span>
               </span>
-              <span className="shrink-0 font-mono text-[11px] text-faint">{formatBytes(d.size_bytes)} · {formatDateTime(d.uploaded_at)}</span>
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="font-mono text-[11px] text-faint">{formatBytes(d.size_bytes)} · {formatDateTime(d.uploaded_at)}</span>
+                <button
+                  type="button"
+                  className="rounded p-1 text-faint transition-colors hover:text-coral"
+                  aria-label={`Remove ${d.filename}`}
+                  onClick={() => setPendingDelete(d)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
             </li>
           ))}
         </ul>
       )}
+
+      <Modal
+        open={pendingDelete !== null}
+        onClose={() => {
+          if (!remove.isPending) setPendingDelete(null)
+        }}
+        title="Remove from knowledge base?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Would you like to remove{' '}
+            <span className="font-600 text-paper">{pendingDelete?.filename}</span>{' '}
+            from your knowledge base? This deletes its indexed content, so it will
+            no longer be used to answer questions. This can’t be undone.
+          </p>
+          {remove.isError && (
+            <ErrorNote>{(remove.error as ApiError)?.detail ?? 'Could not remove the file.'}</ErrorNote>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" disabled={remove.isPending} onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="ember"
+              loading={remove.isPending}
+              onClick={() => pendingDelete && remove.mutate(pendingDelete.id)}
+            >
+              <X className="h-4 w-4" /> Remove
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Panel>
   )
 }

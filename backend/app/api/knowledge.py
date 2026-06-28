@@ -63,6 +63,13 @@ def _index_document(tmp_path: str, display_name: str) -> None:
         except OSError:
             pass
 
+def _purge_document(display_name: str) -> None:
+    """Best-effort removal of a file's embeddings from the RAG store."""
+    try:
+        knowledge_service.purge_documents_by_name(display_name)
+    except Exception:
+        logger.exception("Background purge from RAG store failed for %s", display_name)
+
 @router.post("/documents", response_model=DocumentRead)
 async def upload_document(
     background: BackgroundTasks,
@@ -116,6 +123,20 @@ async def upload_document(
 @router.get("/documents", response_model=list[DocumentRead])
 async def list_documents(db: AsyncSession = Depends(get_db)):
     return await documents_service.list_documents(db)
+
+@router.delete("/documents/{document_id}", status_code=204)
+async def delete_document(
+    document_id: int,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a document from the catalog and purge it from the RAG store."""
+    doc = await documents_service.get_document(db, document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    background.add_task(_purge_document, doc.filename)
+    await documents_service.delete_document(db, doc)
+    return None
 
 @router.post("/search", response_model=KnowledgeSearchResponse)
 async def search_knowledge(payload: KnowledgeSearchRequest):

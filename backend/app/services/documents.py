@@ -23,3 +23,12 @@ async def create_document(
 async def list_documents(db: AsyncSession) -> list[Document]:
     result = await db.execute(select(Document).order_by(Document.uploaded_at.desc()))
     return list(result.scalars().all())
+
+
+async def get_document(db: AsyncSession, document_id: int) -> Document | None:
+    return await db.get(Document, document_id)
+
+
+async def delete_document(db: AsyncSession, doc: Document) -> None:
+    await db.delete(doc)
+    await db.commit()

@@ -184,6 +184,8 @@ export const ClutchApi = {
   },
   searchKnowledge: (query: string) =>
     api<KnowledgeSearchResponse>('/knowledge/search', { method: 'POST', body: { query } }),
+  deleteDocument: (id: number) =>
+    api<void>(`/knowledge/documents/${id}`, { method: 'DELETE' }),
 
   // Renegotiation outbox
   listRenegotiations: () => api<RenegotiationMessage[]>('/renegotiation'),
