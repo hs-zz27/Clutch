@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImagePlus, ListTodo, ListTree, Pencil, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, Chip, EmptyState, ErrorNote, Label, Modal, Panel, Spinner } from './ui'
+import { ScrollHintPanel } from './ScrollHintPanel'
 import { CommitmentForm } from './CommitmentForm'
 import { STATUS_META, IMPORTANCE_LABEL } from '../lib/meta'
 import { cx, formatMinutes, relativeDeadline } from '../lib/format'
@@ -108,13 +109,17 @@ export function CommitmentsPanel() {
       ) : rows.length === 0 ? (
         <EmptyState icon={<ListTodo className="h-6 w-6" />} title="Nothing tracked yet" hint="Brain-dump above or add a commitment manually." />
       ) : (
-        <ul className="space-y-2">
-          {rows.map((c) => {
-            const sm = STATUS_META[c.status]
-            const closed = c.status === 'done' || c.status === 'dropped'
-            const dep = c.depends_on_id != null ? all.find((x) => x.id === c.depends_on_id) : undefined
-            return (
-              <li key={c.id} className="rounded-lg border border-line-soft bg-ink-2 px-3 py-2.5">
+        <ScrollHintPanel
+          maxHeightClass="max-h-[360px] sm:max-h-[520px]"
+          hint="Scroll to see more commitments"
+        >
+          <ul className="space-y-2">
+            {rows.map((c) => {
+              const sm = STATUS_META[c.status]
+              const closed = c.status === 'done' || c.status === 'dropped'
+              const dep = c.depends_on_id != null ? all.find((x) => x.id === c.depends_on_id) : undefined
+              return (
+                <li key={c.id} className="rounded-lg border border-line-soft bg-ink-2 px-3 py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className={cx('truncate font-600', closed && 'text-faint line-through')}>{c.title}</div>
@@ -164,8 +169,9 @@ export function CommitmentsPanel() {
                 </div>
               </li>
             )
-          })}
-        </ul>
+            })}
+          </ul>
+        </ScrollHintPanel>
       )}
 
       {decompose.isError && <div className="mt-3"><ErrorNote>{(decompose.error as ApiError)?.detail ?? 'Could not decompose.'}</ErrorNote></div>}

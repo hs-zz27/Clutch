@@ -3,6 +3,7 @@ import { CalendarClock, GitBranch, TrendingDown } from 'lucide-react'
 import { ClutchApi } from '../api'
 import { CalibrationBadge } from './CalibrationBadge'
 import { Chip, EmptyState, ErrorNote, Panel, Skeleton } from './ui'
+import { ScrollHintPanel } from './ScrollHintPanel'
 import { RISK_META } from '../lib/meta'
 import { cx, formatDateTime, formatMinutes, relativeDeadline } from '../lib/format'
 import type { MakeProbability } from '../types'
@@ -59,13 +60,17 @@ export function PlanTimeline() {
               </span>
             </div>
           )}
-          <ol className="timeline stagger space-y-2">
-            {data.schedule.map((item) => {
-              const rm = RISK_META[item.risk]
-              const p80 = item.remaining_minutes_p80
-              const lateP80 = item.late_minutes_p80
-              return (
-                <li key={item.id} className="relative pl-6">
+          <ScrollHintPanel
+            maxHeightClass="max-h-[380px] sm:max-h-[620px]"
+            hint="Scroll to see the full plan"
+          >
+            <ol className="timeline stagger space-y-2">
+              {data.schedule.map((item) => {
+                const rm = RISK_META[item.risk]
+                const p80 = item.remaining_minutes_p80
+                const lateP80 = item.late_minutes_p80
+                return (
+                  <li key={item.id} className="relative pl-6">
                   <span className={cx(
                     'absolute left-0 top-2 h-3.5 w-3.5 rounded-full border-2 border-surface',
                     item.risk === 'on_track' && 'bg-teal',
@@ -99,8 +104,9 @@ export function PlanTimeline() {
                   </div>
                 </li>
               )
-            })}
-          </ol>
+              })}
+            </ol>
+          </ScrollHintPanel>
         </>
       )}
     </Panel>

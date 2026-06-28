@@ -75,6 +75,37 @@ h1, h2, h3, h4 {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 
+.scrollbar-polished {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-soft) transparent;
+  scrollbar-gutter: stable;
+}
+
+.scrollbar-polished::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-polished::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-polished::-webkit-scrollbar-thumb {
+  background: var(--color-line-soft);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.scrollbar-polished::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+  background-clip: padding-box;
+}
+
+.scroll-hint-pill {
+  box-shadow: var(--shadow-hard-sm);
+}
+
 /* --------------------------------------------------------------------- */
 /* Motion keyframes                                                      */
 /* --------------------------------------------------------------------- */

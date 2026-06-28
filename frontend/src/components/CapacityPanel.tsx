@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, CalendarSync, Gauge, Plus, Trash2, X } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, EmptyState, ErrorNote, Label, Panel, Spinner } from './ui'
+import { ScrollHintPanel } from './ScrollHintPanel'
 import { CapacityMeter } from './CapacityMeter'
 import { DateTimeField } from './DateTimeField'
 import { dayOfMonth, formatDateTime, formatTime, localInputToIso, monthShort } from '../lib/format'
@@ -146,9 +147,13 @@ export function CapacityPanel() {
       ) : (blocks.data?.length ?? 0) === 0 ? (
         <EmptyState title="No busy blocks" hint="Add sleep, classes or meetings so capacity stays honest." />
       ) : (
-        <ul className="space-y-1.5">
-          {blocks.data!.map((b) => (
-            <li key={b.id} className="flex items-center gap-3 rounded-lg border border-line-soft bg-surface-2 px-3 py-2">
+        <ScrollHintPanel
+          maxHeightClass="max-h-[220px] sm:max-h-[280px]"
+          hint="Scroll to see more busy blocks"
+        >
+          <ul className="space-y-1.5">
+            {blocks.data!.map((b) => (
+              <li key={b.id} className="flex items-center gap-3 rounded-lg border border-line-soft bg-surface-2 px-3 py-2">
               <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border-2 border-line bg-line pt-0.5">
                 <span className="font-mono text-[9px] font-600 uppercase tracking-widest text-ember">{monthShort(b.start)}</span>
                 <span className="font-display text-sm font-700 leading-none text-ink-2">{dayOfMonth(b.start)}</span>
@@ -164,8 +169,9 @@ export function CapacityPanel() {
                 </button>
               </div>
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+        </ScrollHintPanel>
       )}
     </Panel>
   )
