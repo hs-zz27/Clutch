@@ -18,8 +18,13 @@ SMTP_PORT = 465  # implicit TLS
 SMTP_TIMEOUT = 20  # seconds - never hang a worker on a stuck connection
 
 
+def _app_password() -> str:
+    """Gmail shows app passwords in 4-char groups; the spaces are display-only."""
+    return (settings.GMAIL_APP_PASSWORD or "").replace(" ", "")
+
+
 def is_configured() -> bool:
-    return bool(settings.GMAIL_SENDER and settings.GMAIL_APP_PASSWORD)
+    return bool(settings.GMAIL_SENDER and _app_password())
 
 
 def send_email(to: str, subject: str, body: str) -> None:
@@ -42,5 +47,10 @@ def send_email(to: str, subject: str, body: str) -> None:
     with smtplib.SMTP_SSL(
         SMTP_HOST, SMTP_PORT, context=context, timeout=SMTP_TIMEOUT
     ) as server:
-        server.login(settings.GMAIL_SENDER, settings.GMAIL_APP_PASSWORD)
+        try:
+            server.login(settings.GMAIL_SENDER, _app_password())
+        except smtplib.SMTPAuthenticationError as e:
+            raise RuntimeError(
+                "Gmail rejected the credentials — check GMAIL_SENDER and that the App Password is correct."
+            ) from e
         server.send_message(message)
