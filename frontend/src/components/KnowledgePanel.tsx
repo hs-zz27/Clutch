@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, FileText, Search, Upload } from 'lucide-react'
 import { ClutchApi, ApiError } from '../api'
 import { Button, EmptyState, ErrorNote, Panel, Spinner } from './ui'
+import { MarkdownLite } from './MarkdownLite'
 import { formatDateTime } from '../lib/format'
 import type { KnowledgeSearchResponse } from '../types'
 
@@ -103,7 +104,7 @@ export function KnowledgePanel() {
         {search.isError && <ErrorNote>{(search.error as ApiError)?.detail ?? 'Search failed.'}</ErrorNote>}
         {answer && (
           <div className="rounded-lg border border-teal/30 bg-teal/5 px-3 py-2">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-paper">{answer.answer}</p>
+            <MarkdownLite text={answer.answer} />
             {answer.citations.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {answer.citations.map((c, i) => (
