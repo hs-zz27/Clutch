@@ -161,6 +161,21 @@ Clutch runs as two services — the FastAPI backend on **Render** and the React 
 - **Root** `frontend` · framework **Vite** · output `dist`, with a SPA rewrite (`vercel.json`) so client-side routes resolve on refresh.
 - **Env:** `VITE_CLUTCH_API_BASE` pointing at the Render backend (no trailing slash — it's baked in at build time).
 
+### Voice — disabled in the hosted demo
+
+<aside>
+🎙️
+
+**The voice agent is fully implemented, but it is intentionally disabled in this hosted deployment — an infrastructure constraint, not a defect.**
+
+Real-time voice requires a **dedicated, always-on background worker** (`backend/voice/`): a long-lived process that stays registered with LiveKit, is dispatched into the room the moment a participant joins, and holds an open, bidirectional audio stream to Gemini Live for the entire duration of the call. This is fundamentally incompatible with serverless hosting such as Vercel — which cannot run persistent processes — and it is deliberately **not** bundled into the single web service that serves the API.
+
+Such a worker demands a **paid, always-on compute instance**. No free tier provides a persistent background worker at zero cost, and this project is currently deployed entirely on free infrastructure. The voice worker is therefore not provisioned: `GET /voice/status` reports disabled and the War Room voice screen remains in “connecting”. **This is a deliberate cost decision — the feature itself is complete and production-ready.**
+
+**To enable it,** provision `backend/voice/` as a dedicated always-on service (for example, a Render **Background Worker** built from its `Dockerfile` / `Procfile`) configured with `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and a **billing-enabled** `GEMINI_API_KEY` (Gemini Live native-audio is not offered on the free tier).
+
+</aside>
+
 ## Reliability
 
 - Deadlines are normalized to UTC at a single save chokepoint, so the planner never mixes naive and aware datetimes.
