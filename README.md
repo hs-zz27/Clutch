@@ -40,7 +40,7 @@ Clutch models your situation as **capacity vs. required effort**, then makes one
 
 ### 🤖 Act
 
-- **AI agent** — give it a goal (“get me through tonight”) and a tool-using Gemini agent inspects your commitments, runs the planner and triage, and returns a final recommendation plus a full reasoning trace.
+- **AI agent** — give it a goal (“get me through tonight”) and a tool-using Gemini agent inspects your commitments, runs the planner and triage, searches your knowledge base, and drafts renegotiations — then returns a final recommendation plus a full reasoning trace. Tools: `get_commitments`, `run_plan`, `run_triage`, `search_knowledge`, `draft_renegotiation`.
 - **Renegotiation drafts** — Clutch writes the “can we move this?” message for you, with tone tuned to the relationship (a note to a professor reads differently than one to a teammate), then lets you edit and send.
 - **Stakeholders directory** — track who each commitment is for, how formal to be, and notes that shape every renegotiation message.
 - **Decision ledger + undo** — every action Clutch takes is recorded with its reasoning and is safely reversible; undo rolls back cleanly even if the world changed underneath it.
@@ -57,7 +57,7 @@ Clutch models your situation as **capacity vs. required effort**, then makes one
 
 - FastAPI (async) + Uvicorn
 - SQLAlchemy 2 async ORM
-- PostgreSQL (Neon), Alembic migrations
+- PostgreSQL (Neon / Render), Alembic migrations
 - Google Gemini — text, vision, function-calling agent, and Live voice
 - Python 3.12
 
@@ -145,6 +145,21 @@ npm run dev
 - **Calendar** — set `CALENDAR_ICS_URL` to sync busy blocks for real capacity.
 
 Every integration is optional — Clutch detects what's configured and quietly skips the rest.
+
+## Deployment
+
+Clutch runs as two services — the FastAPI backend on **Render** and the React frontend on **Vercel** — backed by managed Postgres. The live API is at `https://clutch-khbi.onrender.com` (`/docs` for interactive Swagger, `/healthz` for status).
+
+### Backend → Render
+
+- **Root** `backend` · **Build** `pip install -r requirements.txt` · **Start** `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+- The app auto-converts any `postgresql://` URL to async + enforced SSL and disables the prepared-statement cache, so a managed Postgres URL (Render or Neon) works as-is — and migrations run on every boot.
+- **Env:** `DATABASE_URL`, `GEMINI_API_KEY`, `PYTHON_VERSION=3.12.8`, and `FRONTEND_ORIGIN` set to the Vercel URL (CORS).
+
+### Frontend → Vercel
+
+- **Root** `frontend` · framework **Vite** · output `dist`, with a SPA rewrite (`vercel.json`) so client-side routes resolve on refresh.
+- **Env:** `VITE_CLUTCH_API_BASE` pointing at the Render backend (no trailing slash — it's baked in at build time).
 
 ## Reliability
 
