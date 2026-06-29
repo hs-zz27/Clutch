@@ -6,6 +6,23 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     DATABASE_URL: str = ""
     FRONTEND_ORIGIN: str = "http://localhost:5173"
+    # Comma-separated list of allowed frontend origins for CORS, e.g.
+    # "https://clutch-app-hk2706.web.app,https://clutch-chi-two.vercel.app".
+    # If empty, falls back to the single FRONTEND_ORIGIN below.
+    FRONTEND_ORIGINS: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Explicit allow-list for CORS. Trailing slashes are stripped because a
+        browser's Origin header never includes one. Falls back to FRONTEND_ORIGIN."""
+        raw = self.FRONTEND_ORIGINS or self.FRONTEND_ORIGIN
+        origins, seen = [], set()
+        for part in raw.split(","):
+            origin = part.strip().rstrip("/")
+            if origin and origin not in seen:
+                seen.add(origin)
+                origins.append(origin)
+        return origins
 
     # --- Auth (Phase: multi-tenancy) ---
     # HMAC signing secret for access tokens. MUST be set to a long random string

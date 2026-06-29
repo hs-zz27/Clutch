@@ -1,3 +1,4 @@
+import React from 'react'
 import { Route, Routes, Navigate } from 'react-router-dom'
 import Landing from './pages/Landing'
 import WarRoom from './pages/WarRoom'
@@ -6,7 +7,7 @@ import Toolkit from './pages/Toolkit'
 import Auth from './pages/Auth'
 import { useAuth } from './lib/auth'
 
-function RequireAuth({ children }: { children: JSX.Element }) {
+function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   if (isLoading) return <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center text-white/40">Loading...</div>
   if (!user) return <Navigate to="/auth" replace />
