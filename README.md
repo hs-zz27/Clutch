@@ -5,7 +5,7 @@
 
 </aside>
 
-> **Stack at a glance:** React 19 + Vite (Firebase Hosting) · FastAPI + async SQLAlchemy (Render) · Neon Postgres · Google Gemini (`2.5-flash`, `2.0-flash`, Gemini File Search RAG, Gemini Live voice) · LiveKit voice worker.
+> **Stack at a glance:** React 19 + Vite (Firebase Hosting) · FastAPI + async SQLAlchemy (Google Cloud Run) · Neon Postgres · Google Gemini (`2.5-flash`, `2.0-flash`, Gemini File Search RAG, Gemini Live voice) · LiveKit voice worker.
 > 
 
 ---
@@ -50,7 +50,7 @@ flowchart TB
     subgraph Hosting["☁️ Firebase Hosting (Google Cloud)"]
         CDN["Static SPA + global CDN"]
     end
-    subgraph API["⚙️ FastAPI backend · Render"]
+    subgraph API["⚙️ FastAPI backend · Google Cloud Run"]
         R["15 routers<br/>auth · commitments · planner · triage<br/>agent · knowledge · renegotiation<br/>calendar · whatif · ledger · voice ..."]
         SVC["Service layer<br/>planner · capacity · triage<br/>calibration · whatif · agent"]
     end
@@ -78,7 +78,7 @@ flowchart TB
 | Tier | What | Where |
 | --- | --- | --- |
 | Frontend | React 19 SPA (static build) | **Firebase Hosting** (Google Cloud) |
-| Backend API | FastAPI + async SQLAlchemy | **Render** web service |
+| Backend API | FastAPI + async SQLAlchemy | **Google Cloud Run** — service `clutch-api`, region `asia-south1`, buildpacks, scale-to-zero |
 | Database | Postgres | **Neon** (serverless, via asyncpg) |
 | Voice worker *(optional)* | LiveKit Agents worker | any always-on host |
 
@@ -275,16 +275,19 @@ The browser never sees the LiveKit secret — it requests a scoped token. The wo
 
 ```mermaid
 flowchart LR
-    Dev["git push → main"] --> GH["GitHub Actions"]
-    GH -->|"npm ci && build"| FB["Firebase Hosting<br/>clutch-app-hk2706.web.app"]
-    FB -->|"HTTPS + CORS"| RND["Render API<br/>clutch-khbi.onrender.com"]
-    RND --> NEON[("Neon Postgres")]
-    RND --> GEM["Gemini API"]
+    Dev["git push → main"] --> GH["GitHub Actions (frontend)"]
+    Dev --> CB["Cloud Build trigger (backend)"]
+    GH -->|"npm ci && build<br/>VITE_CLUTCH_API_BASE"| FB["Firebase Hosting<br/>clutch-app-hk2706.web.app"]
+    CB -->|"buildpacks · /backend"| CR["Cloud Run<br/>clutch-api · asia-south1"]
+    FB -->|"HTTPS + CORS"| CR
+    CR --> NEON[("Neon Postgres")]
+    CR --> GEM["Gemini API"]
 ```
 
-- **Frontend → Firebase Hosting** (Google Cloud), live at `https://clutch-app-hk2706.web.app`. A GitHub Actions workflow (`firebase-hosting-merge.yml`) builds the Vite app on every push to `main` (injecting `VITE_CLUTCH_API_BASE` → the Render API) and deploys via `FirebaseExtended/action-hosting-deploy`.
-- **Backend → Render** at `clutch-khbi.onrender.com`, with multi-origin CORS (`FRONTEND_ORIGINS`) allowing the Firebase domains.
+- **Frontend → Firebase Hosting** (Google Cloud), live at `https://clutch-app-hk2706.web.app`. A GitHub Actions workflow (`firebase-hosting-merge.yml`) builds the Vite app on every push to `main` (injecting `VITE_CLUTCH_API_BASE` → the Cloud Run API) and deploys via `FirebaseExtended/action-hosting-deploy`.
+- **Backend → Google Cloud Run**, service `clutch-api` in region `asia-south1` (Mumbai), live at `https://clutch-api-695440268969.asia-south1.run.app`. Built straight from source with **Cloud Buildpacks** — no Dockerfile; build context `/backend`, entrypoint `uvicorn app.main:app --host 0.0.0.0 --port $PORT` — via a **Cloud Build trigger that auto-deploys on every push to `main`**. Runs **request-based with scale-to-zero** (min 0 / max 1 instance) to stay inside the free tier, with multi-origin CORS (`FRONTEND_ORIGINS`) allowing both Firebase domains. Secrets (`GEMINI_API_KEY`, `DATABASE_URL`, `AUTH_SECRET`, `FRONTEND_ORIGINS`) are configured as Cloud Run environment variables.
 - **Database → Neon** serverless Postgres over `asyncpg` (SSL enforced, `statement_cache_size=0` for the pgbouncer pooler, pre-ping + recycle).
+- **Both tiers now run on Google Cloud** — Firebase Hosting (frontend) + Cloud Run (backend) — satisfying the requirement that the live application be hosted on Google Cloud.
 
 ---
 
