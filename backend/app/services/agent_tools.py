@@ -42,8 +42,8 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-async def get_commitments(db: AsyncSession, args: dict) -> dict:
-    rows = await commitments_service.list_commitments(db)
+async def get_commitments(db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
+    rows = await commitments_service.list_commitments(db, user_id)
     return {
         "commitments": [
             {
@@ -64,10 +64,10 @@ async def get_commitments(db: AsyncSession, args: dict) -> dict:
     }
 
 
-async def run_plan(db: AsyncSession, args: dict) -> dict:
-    rows = await commitments_service.list_commitments(db)
-    calib = await calibration_service.get_calibration(db)
-    blocks = await busy_service.list_blocks(db)
+async def run_plan(db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
+    rows = await commitments_service.list_commitments(db, user_id)
+    calib = await calibration_service.get_calibration(db, user_id)
+    blocks = await busy_service.list_blocks(db, user_id)
     return _jsonable(
         planner_service.build_plan(
             list(rows),
@@ -80,13 +80,13 @@ async def run_plan(db: AsyncSession, args: dict) -> dict:
 
 
 async def _real_capacity(
-    db: AsyncSession, pending: list, now: datetime.datetime
+    db: AsyncSession, pending: list, now: datetime.datetime, user_id: int
 ) -> float | None:
     """Realistic focus minutes from now to the last deadline, or None."""
     if not pending:
         return None
     horizon = max(c.deadline for c in pending)
-    blocks = await busy_service.list_blocks_between(db, now, horizon)
+    blocks = await busy_service.list_blocks_between(db, user_id, now, horizon)
     return capacity_service.available_minutes(
         now,
         horizon,
@@ -95,13 +95,13 @@ async def _real_capacity(
     )
 
 
-async def run_triage(db: AsyncSession, args: dict) -> dict:
-    rows = list(await commitments_service.list_commitments(db))
+async def run_triage(db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
+    rows = list(await commitments_service.list_commitments(db, user_id))
     now = _now()
     pending = triage_service.pending_commitments(rows)
-    capacity = await _real_capacity(db, pending, now)
-    calib = await calibration_service.get_calibration(db)
-    blocks = await busy_service.list_blocks(db)
+    capacity = await _real_capacity(db, pending, now, user_id)
+    calib = await calibration_service.get_calibration(db, user_id)
+    blocks = await busy_service.list_blocks(db, user_id)
     return _jsonable(
         triage_service.run_triage(
             rows,
@@ -114,14 +114,14 @@ async def run_triage(db: AsyncSession, args: dict) -> dict:
     )
 
 
-async def search_knowledge(db: AsyncSession, args: dict) -> dict:
+async def search_knowledge(db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
     query = (args or {}).get("query", "").strip()
     if not query:
         return {"error": "query is required"}
-    return await knowledge_service.search(query)
+    return await knowledge_service.search(query, user_id, is_demo)
 
 
-async def draft_renegotiation(db: AsyncSession, args: dict) -> dict:
+async def draft_renegotiation(db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
     """Draft (never send) a renegotiation message for a commitment."""
     raw_id = (args or {}).get("commitment_id")
     if raw_id is None:
@@ -131,7 +131,7 @@ async def draft_renegotiation(db: AsyncSession, args: dict) -> dict:
     except (TypeError, ValueError):
         return {"error": "commitment_id must be an integer"}
 
-    commitment = await commitments_service.get_commitment(db, commitment_id)
+    commitment = await commitments_service.get_commitment(db, commitment_id, user_id)
     if commitment is None:
         return {"error": f"no commitment with id {commitment_id}"}
 
@@ -143,6 +143,7 @@ async def draft_renegotiation(db: AsyncSession, args: dict) -> dict:
 
     msg = await outbox_service.create_draft(
         db,
+        user_id=user_id,
         commitment_id=commitment.id,
         subject=drafted["subject"],
         body=drafted["body"],
@@ -247,8 +248,8 @@ FUNCTION_DECLARATIONS = [
 ]
 
 
-async def dispatch(name: str, db: AsyncSession, args: dict) -> dict:
+async def dispatch(name: str, db: AsyncSession, args: dict, user_id: int, is_demo: bool) -> dict:
     tool = TOOLS.get(name)
     if tool is None:
         return {"error": f"unknown tool: {name}"}
-    return await tool(db, args)
+    return await tool(db, args, user_id, is_demo)

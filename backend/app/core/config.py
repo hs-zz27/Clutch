@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
+    # --- Auth (Phase: multi-tenancy) ---
+    # HMAC signing secret for access tokens. MUST be set to a long random string
+    # in production (e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+    # The default is intentionally unusable in prod and only keeps local/import working.
+    AUTH_SECRET: str = "dev-insecure-change-me"
+    # Access-token lifetime in hours (default 7 days).
+    ACCESS_TOKEN_TTL_HOURS: int = 168
+
     # Echo SQL to logs. Keep False outside local debugging - it is noisy and can
     # leak row/parameter values into application logs.
     SQL_ECHO: bool = False

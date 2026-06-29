@@ -7,7 +7,7 @@ commitments) happens in the API layer so this stays a pure, testable function.
 from __future__ import annotations
 
 from fastapi import HTTPException
-from app.core.gemini import client, GeminiUnavailable
+from app.core.gemini import client, GeminiUnavailable, GeminiQuotaExceeded, guard_gemini
 from app.models.commitment import Commitment
 from app.schemas.decompose import SubtaskSuggestion
 
@@ -35,14 +35,17 @@ async def suggest_subtasks(commitment: Commitment) -> list[SubtaskSuggestion]:
         mvd=commitment.min_viable_definition or "not specified",
     )
     try:
-        resp = await client.aio.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": list[SubtaskSuggestion],
-            },
-        )
+        with guard_gemini():
+            resp = await client.aio.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": list[SubtaskSuggestion],
+                },
+            )
+    except GeminiQuotaExceeded as e:
+        raise HTTPException(status_code=429, detail=str(e))
     except GeminiUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     return list(resp.parsed or [])

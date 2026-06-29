@@ -11,8 +11,9 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
-from app.core.gemini import client, GeminiUnavailable
+from app.core.gemini import client, GeminiUnavailable, GeminiQuotaExceeded, guard_gemini
 from app.services import agent_tools
+from app.services import users as users_service
 
 MODEL = "gemini-2.5-flash"
 MAX_STEPS = 8
@@ -50,7 +51,9 @@ Write the final answer for a stressed, non-technical person. Rules:
 """
 
 
-async def run_agent(db: AsyncSession, goal: str) -> dict:
+async def run_agent(db: AsyncSession, goal: str, user_id: int) -> dict:
+    user = await users_service.get_user(db, user_id)
+    is_demo = user.is_demo if user else False
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         tools=[types.Tool(function_declarations=agent_tools.FUNCTION_DECLARATIONS)],
@@ -63,9 +66,12 @@ async def run_agent(db: AsyncSession, goal: str) -> dict:
 
     for _ in range(MAX_STEPS):
         try:
-            resp = await client.aio.models.generate_content(
-                model=MODEL, contents=contents, config=config
-            )
+            with guard_gemini():
+                resp = await client.aio.models.generate_content(
+                    model=MODEL, contents=contents, config=config
+                )
+        except GeminiQuotaExceeded as e:
+            raise HTTPException(status_code=429, detail=str(e))
         except GeminiUnavailable as e:
             raise HTTPException(status_code=503, detail=str(e))
         if not resp.candidates or resp.candidates[0].content is None:
@@ -86,7 +92,7 @@ async def run_agent(db: AsyncSession, goal: str) -> dict:
         for fc in calls:
             args = dict(fc.args or {})
             trace.append({"type": "tool_call", "tool": fc.name, "args": args})
-            result = await agent_tools.dispatch(fc.name, db, args)
+            result = await agent_tools.dispatch(fc.name, db, args, user_id, is_demo)
             trace.append({"type": "tool_result", "tool": fc.name, "result": result})
             contents.append(
                 types.Content(

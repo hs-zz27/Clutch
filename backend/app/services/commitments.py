@@ -19,10 +19,10 @@ def _normalize_deadline(obj: Commitment) -> None:
 
 
 async def create_commitments(
-    db: AsyncSession, items: list[CommitmentCreate]
+    db: AsyncSession, items: list[CommitmentCreate], user_id: int
 ) -> list[Commitment]:
     """Single source of truth for saving commitments."""
-    objs = [Commitment(**c.model_dump()) for c in items]
+    objs = [Commitment(**c.model_dump(), user_id=user_id) for c in items]
     for o in objs:
         _normalize_deadline(o)
     db.add_all(objs)
@@ -31,20 +31,27 @@ async def create_commitments(
         await db.refresh(o)
     return objs
 
-async def list_commitments(db: AsyncSession) -> list[Commitment]:
+async def list_commitments(db: AsyncSession, user_id: int) -> list[Commitment]:
     """Retrieve all commitments, ordered by deadline."""
-    result = await db.execute(select(Commitment).order_by(Commitment.deadline))
+    result = await db.execute(
+        select(Commitment)
+        .where(Commitment.user_id == user_id)
+        .order_by(Commitment.deadline)
+    )
     return list(result.scalars().all())
 
-async def get_commitment(db: AsyncSession, commitment_id: int) -> Commitment | None:
+async def get_commitment(db: AsyncSession, commitment_id: int, user_id: int) -> Commitment | None:
     """Retrieve a single commitment by ID."""
-    return await db.get(Commitment, commitment_id)
+    result = await db.execute(
+        select(Commitment).where(Commitment.id == commitment_id, Commitment.user_id == user_id)
+    )
+    return result.scalars().first()
 
 async def update_commitment(
-    db: AsyncSession, commitment_id: int, payload: CommitmentUpdate
+    db: AsyncSession, commitment_id: int, user_id: int, payload: CommitmentUpdate
 ) -> Commitment | None:
     """Update a commitment by ID."""
-    obj = await db.get(Commitment, commitment_id)
+    obj = await get_commitment(db, commitment_id, user_id)
     if not obj:
         return None
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -54,9 +61,9 @@ async def update_commitment(
     await db.refresh(obj)
     return obj
 
-async def delete_commitment(db: AsyncSession, commitment_id: int) -> bool:
+async def delete_commitment(db: AsyncSession, commitment_id: int, user_id: int) -> bool:
     """Delete a commitment by ID."""
-    obj = await db.get(Commitment, commitment_id)
+    obj = await get_commitment(db, commitment_id, user_id)
     if not obj:
         return False
     await db.delete(obj)
@@ -65,7 +72,7 @@ async def delete_commitment(db: AsyncSession, commitment_id: int) -> bool:
 
 
 async def validate_dependency(
-    db: AsyncSession, depends_on_id: int | None, *, self_id: int | None = None
+    db: AsyncSession, depends_on_id: int | None, user_id: int, *, self_id: int | None = None
 ) -> str | None:
     """Return a human-readable error if depends_on_id is invalid, else None.
 
@@ -76,7 +83,7 @@ async def validate_dependency(
         return None
     if self_id is not None and depends_on_id == self_id:
         return "A commitment cannot depend on itself."
-    target = await db.get(Commitment, depends_on_id)
+    target = await get_commitment(db, depends_on_id, user_id)
     if target is None:
         return f"Dependency #{depends_on_id} does not exist."
     # walk up the chain from the target; revisiting a node (including self) means
@@ -91,5 +98,5 @@ async def validate_dependency(
         seen.add(cur.id)
         if cur.depends_on_id is None:
             break
-        cur = await db.get(Commitment, cur.depends_on_id)
+        cur = await get_commitment(db, cur.depends_on_id, user_id)
     return None

@@ -77,7 +77,7 @@ def _parse(text: str) -> list[dict]:
     return blocks
 
 
-async def sync(db: AsyncSession) -> dict:
+async def sync(db: AsyncSession, user_id: int) -> dict:
     """Fetch the configured ICS feed and replace imported busy blocks.
 
     Raises IcsNotAvailable if the extra isn't installed or no URL is set.
@@ -91,5 +91,5 @@ async def sync(db: AsyncSession) -> dict:
 
     text = await _fetch(settings.CALENDAR_ICS_URL)
     blocks = _parse(text)
-    count = await busy_service.replace_ics_blocks(db, blocks)
+    count = await busy_service.replace_ics_blocks(db, user_id, blocks)
     return {"imported": count}

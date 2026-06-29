@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.whatif import WhatIfScenario
 from app.services import busy_blocks as busy_service
 from app.services import calibration as calibration_service
@@ -33,14 +35,14 @@ def _real_capacity(busy: list, pending: list, now: datetime) -> float | None:
 
 @router.post("")
 async def run_whatif(
-    scenario: WhatIfScenario, db: AsyncSession = Depends(get_db)
+    scenario: WhatIfScenario, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    rows = list(await commitments_service.list_commitments(db))
+    rows = list(await commitments_service.list_commitments(db, user.id))
     now = datetime.now(timezone.utc)
     pending = triage_service.pending_commitments(rows)
-    blocks = await busy_service.list_blocks(db)
+    blocks = await busy_service.list_blocks(db, user.id)
     capacity = _real_capacity(blocks, pending, now)
-    calib = await calibration_service.get_calibration(db)
+    calib = await calibration_service.get_calibration(db, user.id)
     return whatif_service.simulate(
         rows,
         now,

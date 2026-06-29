@@ -11,7 +11,10 @@ failing to import or start.
 import uuid
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.auth import get_current_user
+from app.models.user import User
 
 from app.core.config import settings
 from app.schemas.voice import (
@@ -24,7 +27,7 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 
 
 @router.get("/status", response_model=VoiceStatusResponse)
-def voice_status() -> VoiceStatusResponse:
+def voice_status(user: User = Depends(get_current_user)) -> VoiceStatusResponse:
     """Tell the frontend whether voice is available, without leaking secrets."""
     return VoiceStatusResponse(
         enabled=settings.voice_enabled,
@@ -35,7 +38,7 @@ def voice_status() -> VoiceStatusResponse:
 
 
 @router.post("/token", response_model=VoiceTokenResponse)
-def create_voice_token(payload: VoiceTokenRequest) -> VoiceTokenResponse:
+def create_voice_token(payload: VoiceTokenRequest, user: User = Depends(get_current_user)) -> VoiceTokenResponse:
     """Mint a short-lived LiveKit access token for the browser to join a room."""
     if not settings.voice_enabled:
         raise HTTPException(

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.decision_ledger import DecisionLedger
 from app.models.commitment import Commitment, Status
+from app.services import commitments
 
 logger = logging.getLogger("clutch")
 
@@ -67,8 +68,10 @@ async def record(
     payload: dict | None = None,
     reversible: bool = False,
     commit: bool = True,
+    user_id: int,
 ) -> DecisionLedger:
     entry = DecisionLedger(
+        user_id=user_id,
         action=action,
         target_type=target_type,
         target_id=target_id,
@@ -83,23 +86,25 @@ async def record(
         await db.refresh(entry)
     return entry
 
-async def count_entries(db: AsyncSession) -> int:
-    result = await db.execute(select(func.count()).select_from(DecisionLedger))
+async def count_entries(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(select(func.count()).select_from(DecisionLedger).where(DecisionLedger.user_id == user_id))
     return int(result.scalar_one())
 
 async def list_entries(
-    db: AsyncSession, limit: int = 100, offset: int = 0
+    db: AsyncSession, user_id: int, limit: int = 100, offset: int = 0
 ) -> list[DecisionLedger]:
     result = await db.execute(
         select(DecisionLedger)
+        .where(DecisionLedger.user_id == user_id)
         .order_by(DecisionLedger.created_at.desc(), DecisionLedger.id.desc())
         .limit(limit)
         .offset(offset)
     )
     return list(result.scalars().all())
 
-async def undo(db: AsyncSession, entry_id: int) -> dict:
-    entry = await db.get(DecisionLedger, entry_id)
+async def undo(db: AsyncSession, entry_id: int, user_id: int) -> dict:
+    result = await db.execute(select(DecisionLedger).where(DecisionLedger.id == entry_id, DecisionLedger.user_id == user_id))
+    entry = result.scalars().first()
     if entry is None:
         return {"ok": False, "error": "ledger entry not found"}
     if entry.undone:
@@ -108,7 +113,7 @@ async def undo(db: AsyncSession, entry_id: int) -> dict:
         return {"ok": False, "error": "this action cannot be undone"}
 
     try:
-        outcome = await _apply_undo(db, entry)
+        outcome = await _apply_undo(db, entry, user_id)
         if outcome.get("ok"):
             entry.undone = True
             await db.commit()
@@ -126,14 +131,14 @@ async def undo(db: AsyncSession, entry_id: int) -> dict:
             "error": "Undo could not be applied safely; nothing was changed.",
         }
 
-async def _existing_commitment_id(db: AsyncSession, cid: int | None) -> int | None:
+async def _existing_commitment_id(db: AsyncSession, cid: int | None, user_id: int) -> int | None:
     """Return cid only if that commitment still exists, else None."""
     if cid is None:
         return None
-    obj = await db.get(Commitment, cid)
+    obj = await commitments.get_commitment(db, cid, user_id)
     return cid if obj is not None else None
 
-async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
+async def _apply_undo(db: AsyncSession, entry: DecisionLedger, user_id: int) -> dict:
     if entry.target_type != "commitment":
         return {"ok": False, "error": "no undo handler for this action"}
 
@@ -142,7 +147,7 @@ async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
     if entry.action == "create_commitment":
         if entry.target_id is None:
             return {"ok": False, "error": "missing target"}
-        obj = await db.get(Commitment, entry.target_id)
+        obj = await commitments.get_commitment(db, entry.target_id, user_id)
         if obj is not None:
             await db.delete(obj)
         return {"ok": True, "detail": "Removed the created commitment."}
@@ -155,9 +160,9 @@ async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
         # the prerequisite may have been deleted since; don't recreate a bad FK
         if data.get("depends_on_id") is not None:
             data["depends_on_id"] = await _existing_commitment_id(
-                db, data["depends_on_id"]
+                db, data["depends_on_id"], user_id
             )
-        obj = Commitment(**data)
+        obj = Commitment(**data, user_id=user_id)
         db.add(obj)
         return {"ok": True, "detail": "Recreated the deleted commitment (new id)."}
 
@@ -165,13 +170,13 @@ async def _apply_undo(db: AsyncSession, entry: DecisionLedger) -> dict:
         before = payload.get("before") or {}
         if entry.target_id is None:
             return {"ok": False, "error": "missing target"}
-        obj = await db.get(Commitment, entry.target_id)
+        obj = await commitments.get_commitment(db, entry.target_id, user_id)
         if obj is None:
             return {"ok": False, "error": "commitment no longer exists"}
         restore = _coerce_commitment(before)
         if restore.get("depends_on_id") is not None:
             restore["depends_on_id"] = await _existing_commitment_id(
-                db, restore["depends_on_id"]
+                db, restore["depends_on_id"], user_id
             )
         for f, v in restore.items():
             setattr(obj, f, v)

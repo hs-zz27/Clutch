@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Text
+from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
@@ -12,7 +12,10 @@ class Stakeholder(Base):
     __tablename__ = "stakeholders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), index=True)
     # free-form role, e.g. 'professor', 'manager', 'client', 'teammate', 'friend'
     relationship: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 1 = very casual ... 5 = very formal

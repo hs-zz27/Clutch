@@ -1,8 +1,14 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger("clutch.renegotiation")
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.renegotiation import (
     RenegotiationGenerateRequest,
     RenegotiationRead,
@@ -19,29 +25,33 @@ router = APIRouter(prefix="/renegotiation", tags=["renegotiation"])
 
 @router.post("/draft", response_model=RenegotiationRead)
 async def create_draft(
-    payload: RenegotiationGenerateRequest, db: AsyncSession = Depends(get_db)
+    payload: RenegotiationGenerateRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     """Draft (but do not send) a renegotiation message for a commitment."""
-    commitment = await commitments_service.get_commitment(db, payload.commitment_id)
+    commitment = await commitments_service.get_commitment(db, payload.commitment_id, user.id)
     if commitment is None:
         raise HTTPException(status_code=404, detail="Commitment not found")
 
     # feature #8: tailor tone using the stakeholder relationship model if known
     context = await stakeholders_service.get_context_by_name(
-        db, commitment.stakeholder
+        db, commitment.stakeholder, user.id
     )
 
     try:
         drafted = await renegotiation_service.draft_message(
             commitment, payload.tone, context
         )
+    except HTTPException:
+        raise  # preserve the service's real status (e.g. 503 when Gemini/key is unavailable)
     except Exception:
+        logger.exception("renegotiation draft generation failed")
         raise HTTPException(
             status_code=502, detail="Failed to generate the renegotiation draft."
         )
 
     return await outbox_service.create_draft(
         db,
+        user_id=user.id,
         commitment_id=commitment.id,
         subject=drafted["subject"],
         body=drafted["body"],
@@ -50,8 +60,8 @@ async def create_draft(
 
 
 @router.get("", response_model=list[RenegotiationRead])
-async def list_drafts(db: AsyncSession = Depends(get_db)):
-    return await outbox_service.list_messages(db)
+async def list_drafts(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    return await outbox_service.list_messages(db, user.id)
 
 
 @router.patch("/{message_id}", response_model=RenegotiationRead)
@@ -59,8 +69,9 @@ async def edit_draft(
     message_id: int,
     payload: RenegotiationUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
-    msg = await outbox_service.get_message(db, message_id)
+    msg = await outbox_service.get_message(db, message_id, user.id)
     if msg is None:
         raise HTTPException(status_code=404, detail="Message not found")
     return await outbox_service.update_draft(
@@ -73,9 +84,9 @@ async def edit_draft(
 
 
 @router.post("/{message_id}/send", response_model=RenegotiationRead)
-async def send_draft(message_id: int, db: AsyncSession = Depends(get_db)):
+async def send_draft(message_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Send a drafted message via Gmail SMTP. Degrades gracefully if unconfigured."""
-    msg = await outbox_service.get_message(db, message_id)
+    msg = await outbox_service.get_message(db, message_id, user.id)
     if msg is None:
         raise HTTPException(status_code=404, detail="Message not found")
     if not msg.recipient:

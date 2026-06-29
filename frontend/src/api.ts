@@ -19,6 +19,8 @@ import type {
   Stakeholder,
   StakeholderCreate,
   StakeholderUpdate,
+  TokenResponse,
+  User,
   WhatIfResult,
   WhatIfScenario,
 } from './types'
@@ -59,6 +61,11 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   const headers: Record<string, string> = {}
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
+  
+  const token = localStorage.getItem('clutch_token')
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
 
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -128,6 +135,12 @@ export type VoiceToken = {
 
 export const ClutchApi = {
   health: () => api<Health>('/healthz'),
+
+  // Auth
+  register: (body: any) => api<TokenResponse>('/auth/register', { method: 'POST', body }),
+  login: (body: any) => api<TokenResponse>('/auth/login', { method: 'POST', body }),
+  demoLogin: () => api<TokenResponse>('/auth/demo', { method: 'POST' }),
+  me: () => api<User>('/auth/me'),
 
   // Commitments
   listCommitments: () => api<Commitment[]>('/commitments'),

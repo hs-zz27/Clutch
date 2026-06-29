@@ -14,6 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.commitment import Status
 from app.schemas.commitment import CommitmentCreate
 from app.schemas.decompose import DecomposeBody
@@ -29,13 +31,16 @@ async def decompose_commitment(
     commitment_id: int,
     body: DecomposeBody | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    parent = await commitments_service.get_commitment(db, commitment_id)
+    parent = await commitments_service.get_commitment(db, commitment_id, user.id)
     if parent is None:
         raise HTTPException(404, "Commitment not found")
 
     try:
         suggestions = await decompose_service.suggest_subtasks(parent)
+    except HTTPException:
+        raise  # preserve 429 (quota) / 503 from the service
     except Exception:
         raise HTTPException(502, "Failed to generate a decomposition")
 
@@ -59,7 +64,7 @@ async def decompose_commitment(
                 stakeholder=parent.stakeholder,
                 depends_on_id=prev_id,
             )
-            objs = await commitments_service.create_commitments(db, [payload])
+            objs = await commitments_service.create_commitments(db, [payload], user.id)
             obj = objs[0]
             prev_id = obj.id
             await ledger_service.record(
@@ -71,6 +76,7 @@ async def decompose_commitment(
                 reasoning=f"Auto-decomposed from commitment #{parent.id}.",
                 reversible=True,
                 commit=False,
+                user_id=user.id,
             )
             created.append(obj)
 
@@ -89,6 +95,7 @@ async def decompose_commitment(
                 payload={"before": parent_before, "changed": ["status"]},
                 reversible=True,
                 commit=False,
+                user_id=user.id,
             )
 
         await db.commit()

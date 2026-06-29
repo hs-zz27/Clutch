@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, DateTime, Enum
+from sqlalchemy import String, Integer, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -22,6 +22,9 @@ class BusyBlock(Base):
     __tablename__ = "busy_blocks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     start: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     label: Mapped[str | None] = mapped_column(String(512), nullable=True)

@@ -14,6 +14,8 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.core.gemini import client, GeminiUnavailable
 from app.schemas.commitment import CommitmentCreate, CommitmentRead
 from app.services import commitments as service
@@ -37,7 +39,7 @@ _MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 @router.post("/parse-image", response_model=list[CommitmentRead])
 async def parse_image(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...), db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     mime = (file.content_type or "application/octet-stream").lower()
     if mime not in _ALLOWED_MIME:
@@ -83,7 +85,7 @@ Extract every distinct task you can see. If none are present, return an empty li
     # depends_on_id from bulk image capture (unvalidated FK -> 500).
     for item in parsed:
         item.depends_on_id = None
-    created = await service.create_commitments(db, parsed)
+    created = await service.create_commitments(db, parsed, user.id)
     for obj in created:
         await ledger_service.record(
             db,
@@ -94,6 +96,7 @@ Extract every distinct task you can see. If none are present, return an empty li
             reasoning="Extracted via multimodal (Gemini Vision) capture.",
             reversible=True,
             commit=False,
+            user_id=user.id,
         )
     await db.commit()
     return created

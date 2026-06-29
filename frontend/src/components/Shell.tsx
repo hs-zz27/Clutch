@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { BookOpen, Mic, Swords } from 'lucide-react'
 import { HealthBadge } from './HealthBadge'
 import { cx } from '../lib/format'
+import { useAuth } from '../lib/auth'
 
 function LiveClock() {
   const [now, setNow] = useState(() => new Date())
@@ -25,6 +26,7 @@ const navLink = ({ isActive }: { isActive: boolean }) =>
 
 /** Sticky app frame: brand mark + primary nav + voice entry + live clock + health badge. */
 export function Shell({ children }: { children: ReactNode }) {
+  const { logout, user } = useAuth()
   return (
     <div className="min-h-full">
       <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-md">
@@ -51,6 +53,14 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
             <LiveClock />
             <HealthBadge />
+            {user && (
+              <button
+                onClick={logout}
+                className="ml-2 hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-600 transition-colors sm:inline-flex bg-white/5 text-muted hover:text-paper hover:bg-white/10"
+              >
+                Log out
+              </button>
+            )}
           </nav>
         </div>
       </header>

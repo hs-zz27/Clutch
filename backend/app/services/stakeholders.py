@@ -13,39 +13,43 @@ from app.schemas.stakeholder import StakeholderCreate, StakeholderUpdate
 
 
 async def create_stakeholder(
-    db: AsyncSession, payload: StakeholderCreate
+    db: AsyncSession, payload: StakeholderCreate, user_id: int
 ) -> Stakeholder:
-    obj = Stakeholder(**payload.model_dump())
+    obj = Stakeholder(**payload.model_dump(), user_id=user_id)
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
     return obj
 
 
-async def list_stakeholders(db: AsyncSession) -> list[Stakeholder]:
-    result = await db.execute(select(Stakeholder).order_by(Stakeholder.name))
+async def list_stakeholders(db: AsyncSession, user_id: int) -> list[Stakeholder]:
+    result = await db.execute(
+        select(Stakeholder).where(Stakeholder.user_id == user_id).order_by(Stakeholder.name)
+    )
     return list(result.scalars().all())
 
 
-async def get_stakeholder(db: AsyncSession, stakeholder_id: int) -> Stakeholder | None:
-    return await db.get(Stakeholder, stakeholder_id)
+async def get_stakeholder(db: AsyncSession, stakeholder_id: int, user_id: int) -> Stakeholder | None:
+    result = await db.execute(select(Stakeholder).where(Stakeholder.id == stakeholder_id, Stakeholder.user_id == user_id))
+    return result.scalars().first()
 
 
-async def get_by_name(db: AsyncSession, name: str | None) -> Stakeholder | None:
+async def get_by_name(db: AsyncSession, name: str | None, user_id: int) -> Stakeholder | None:
     if not name or not name.strip():
         return None
     result = await db.execute(
         select(Stakeholder).where(
-            func.lower(Stakeholder.name) == name.strip().lower()
+            func.lower(Stakeholder.name) == name.strip().lower(),
+            Stakeholder.user_id == user_id
         )
     )
     return result.scalars().first()
 
 
 async def update_stakeholder(
-    db: AsyncSession, stakeholder_id: int, payload: StakeholderUpdate
+    db: AsyncSession, stakeholder_id: int, user_id: int, payload: StakeholderUpdate
 ) -> Stakeholder | None:
-    obj = await db.get(Stakeholder, stakeholder_id)
+    obj = await get_stakeholder(db, stakeholder_id, user_id)
     if obj is None:
         return None
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -55,8 +59,8 @@ async def update_stakeholder(
     return obj
 
 
-async def delete_stakeholder(db: AsyncSession, stakeholder_id: int) -> bool:
-    obj = await db.get(Stakeholder, stakeholder_id)
+async def delete_stakeholder(db: AsyncSession, stakeholder_id: int, user_id: int) -> bool:
+    obj = await get_stakeholder(db, stakeholder_id, user_id)
     if obj is None:
         return False
     await db.delete(obj)
@@ -64,9 +68,9 @@ async def delete_stakeholder(db: AsyncSession, stakeholder_id: int) -> bool:
     return True
 
 
-async def get_context_by_name(db: AsyncSession, name: str | None) -> dict | None:
+async def get_context_by_name(db: AsyncSession, name: str | None, user_id: int) -> dict | None:
     """Return a tone-context dict for a stakeholder name, or None if unknown."""
-    obj = await get_by_name(db, name)
+    obj = await get_by_name(db, name, user_id)
     if obj is None:
         return None
     return {

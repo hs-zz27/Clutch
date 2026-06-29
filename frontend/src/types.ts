@@ -9,6 +9,19 @@ export type CommitmentStatus =
   | 'dropped'
   | 'deferred'
 
+export interface User {
+  id: number
+  email: string
+  display_name: string
+  is_demo: boolean
+  created_at: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  user: User
+}
+
 export interface Commitment {
   id: number
   title: string

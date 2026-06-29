@@ -22,6 +22,8 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.knowledge import (
     DocumentRead,
     KnowledgeSearchRequest,
@@ -50,11 +52,11 @@ def _safe_filename(name: str | None) -> str:
     base = base.lstrip(".") or "document"
     return base[:120]
 
-def _index_document(tmp_path: str, display_name: str) -> None:
+def _index_document(tmp_path: str, display_name: str, user_id: int, is_demo: bool) -> None:
     """Blocking import into the RAG store. Runs as a background task (threadpool)
     so the upload request can return immediately. Always cleans up the temp file."""
     try:
-        knowledge_service.upload_document(tmp_path, display_name)
+        knowledge_service.upload_document(tmp_path, display_name, user_id, is_demo)
     except Exception:
         logger.exception("Background indexing failed for %s", display_name)
     finally:
@@ -63,10 +65,10 @@ def _index_document(tmp_path: str, display_name: str) -> None:
         except OSError:
             pass
 
-def _purge_document(display_name: str) -> None:
+def _purge_document(display_name: str, user_id: int, is_demo: bool) -> None:
     """Best-effort removal of a file's embeddings from the RAG store."""
     try:
-        knowledge_service.purge_documents_by_name(display_name)
+        knowledge_service.purge_documents_by_name(display_name, user_id, is_demo)
     except Exception:
         logger.exception("Background purge from RAG store failed for %s", display_name)
 
@@ -75,6 +77,7 @@ async def upload_document(
     background: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
     """Validate, catalog, and (in the background) index a document for RAG."""
     safe_name = _safe_filename(file.filename)
@@ -113,32 +116,34 @@ async def upload_document(
     doc = await documents_service.create_document(
         db,
         filename=safe_name,
+        user_id=user.id,
         content_type=file.content_type,
         size_bytes=size,
     )
     # ...then do the slow Gemini chunk/embed/index off the request path.
-    background.add_task(_index_document, tmp_path, safe_name)
+    background.add_task(_index_document, tmp_path, safe_name, user.id, user.is_demo)
     return doc
 
 @router.get("/documents", response_model=list[DocumentRead])
-async def list_documents(db: AsyncSession = Depends(get_db)):
-    return await documents_service.list_documents(db)
+async def list_documents(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    return await documents_service.list_documents(db, user.id)
 
 @router.delete("/documents/{document_id}", status_code=204)
 async def delete_document(
     document_id: int,
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
     """Remove a document from the catalog and purge it from the RAG store."""
-    doc = await documents_service.get_document(db, document_id)
+    doc = await documents_service.get_document(db, document_id, user.id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found.")
-    background.add_task(_purge_document, doc.filename)
+    background.add_task(_purge_document, doc.filename, user.id, user.is_demo)
     await documents_service.delete_document(db, doc)
     return None
 
 @router.post("/search", response_model=KnowledgeSearchResponse)
-async def search_knowledge(payload: KnowledgeSearchRequest):
+async def search_knowledge(payload: KnowledgeSearchRequest, user: User = Depends(get_current_user)):
     """Test endpoint: run a grounded retrieval query against the knowledge base."""
-    return await knowledge_service.search(payload.query)
+    return await knowledge_service.search(payload.query, user.id, user.is_demo)

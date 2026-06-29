@@ -11,17 +11,25 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.renegotiation import OutboxStatus, RenegotiationMessage
+from app.services import commitments
+from fastapi import HTTPException
 
 
 async def create_draft(
     db: AsyncSession,
     *,
+    user_id: int,
     commitment_id: int,
     subject: str,
     body: str,
     recipient: str | None = None,
 ) -> RenegotiationMessage:
+    commitment = await commitments.get_commitment(db, commitment_id, user_id)
+    if not commitment:
+        raise HTTPException(status_code=404, detail="Commitment not found")
+
     msg = RenegotiationMessage(
+        user_id=user_id,
         commitment_id=commitment_id,
         subject=subject,
         body=body,
@@ -35,9 +43,9 @@ async def create_draft(
 
 
 async def list_messages(
-    db: AsyncSession, status: OutboxStatus | None = None
+    db: AsyncSession, user_id: int, status: OutboxStatus | None = None
 ) -> list[RenegotiationMessage]:
-    stmt = select(RenegotiationMessage).order_by(
+    stmt = select(RenegotiationMessage).where(RenegotiationMessage.user_id == user_id).order_by(
         RenegotiationMessage.created_at.desc()
     )
     if status is not None:
@@ -47,9 +55,12 @@ async def list_messages(
 
 
 async def get_message(
-    db: AsyncSession, message_id: int
+    db: AsyncSession, message_id: int, user_id: int
 ) -> RenegotiationMessage | None:
-    return await db.get(RenegotiationMessage, message_id)
+    result = await db.execute(
+        select(RenegotiationMessage).where(RenegotiationMessage.id == message_id, RenegotiationMessage.user_id == user_id)
+    )
+    return result.scalars().first()
 
 
 async def update_draft(

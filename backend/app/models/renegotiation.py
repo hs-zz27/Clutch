@@ -25,6 +25,9 @@ class RenegotiationMessage(Base):
     __tablename__ = "renegotiation_messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     commitment_id: Mapped[int] = mapped_column(
         ForeignKey("commitments.id", ondelete="CASCADE"), index=True
     )

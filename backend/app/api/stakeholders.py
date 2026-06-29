@@ -4,6 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.stakeholder import (
     StakeholderCreate,
     StakeholderRead,
@@ -16,23 +18,23 @@ router = APIRouter(prefix="/stakeholders", tags=["stakeholders"])
 
 @router.post("", response_model=StakeholderRead)
 async def create_stakeholder(
-    payload: StakeholderCreate, db: AsyncSession = Depends(get_db)
+    payload: StakeholderCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     try:
-        return await service.create_stakeholder(db, payload)
+        return await service.create_stakeholder(db, payload, user.id)
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, f"A stakeholder named '{payload.name}' already exists")
 
 
 @router.get("", response_model=list[StakeholderRead])
-async def list_stakeholders(db: AsyncSession = Depends(get_db)):
-    return await service.list_stakeholders(db)
+async def list_stakeholders(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    return await service.list_stakeholders(db, user.id)
 
 
 @router.get("/{stakeholder_id}", response_model=StakeholderRead)
-async def get_stakeholder(stakeholder_id: int, db: AsyncSession = Depends(get_db)):
-    obj = await service.get_stakeholder(db, stakeholder_id)
+async def get_stakeholder(stakeholder_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    obj = await service.get_stakeholder(db, stakeholder_id, user.id)
     if obj is None:
         raise HTTPException(404, "Stakeholder not found")
     return obj
@@ -43,9 +45,10 @@ async def update_stakeholder(
     stakeholder_id: int,
     payload: StakeholderUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
     try:
-        obj = await service.update_stakeholder(db, stakeholder_id, payload)
+        obj = await service.update_stakeholder(db, stakeholder_id, user.id, payload)
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, "Another stakeholder already has that name")
@@ -55,7 +58,7 @@ async def update_stakeholder(
 
 
 @router.delete("/{stakeholder_id}", status_code=204)
-async def delete_stakeholder(stakeholder_id: int, db: AsyncSession = Depends(get_db)):
-    ok = await service.delete_stakeholder(db, stakeholder_id)
+async def delete_stakeholder(stakeholder_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    ok = await service.delete_stakeholder(db, stakeholder_id, user.id)
     if not ok:
         raise HTTPException(404, "Stakeholder not found")

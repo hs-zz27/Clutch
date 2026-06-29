@@ -25,9 +25,9 @@ _MIN_FACTOR = 0.25
 _MAX_FACTOR = 4.0
 
 
-async def get_calibration(db: AsyncSession) -> dict:
+async def get_calibration(db: AsyncSession, user_id: int) -> dict:
     result = await db.execute(
-        select(Commitment).where(Commitment.status == Status.done)
+        select(Commitment).where(Commitment.status == Status.done, Commitment.user_id == user_id)
     )
     done = result.scalars().all()
 

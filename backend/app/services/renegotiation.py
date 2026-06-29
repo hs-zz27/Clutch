@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException
-from app.core.gemini import client, GeminiUnavailable
+from app.core.gemini import client, GeminiUnavailable, GeminiQuotaExceeded, guard_gemini
 from app.models.commitment import Commitment
 
 MODEL = "gemini-2.5-flash"
@@ -83,7 +83,10 @@ async def draft_message(
         relationship=_relationship_block(stakeholder_context),
     )
     try:
-        resp = await client.aio.models.generate_content(model=MODEL, contents=prompt)
+        with guard_gemini():
+            resp = await client.aio.models.generate_content(model=MODEL, contents=prompt)
+    except GeminiQuotaExceeded as e:
+        raise HTTPException(status_code=429, detail=str(e))
     except GeminiUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     return _split_subject_body(

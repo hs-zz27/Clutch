@@ -15,6 +15,7 @@ import json
 import logging
 import random
 import time
+from contextlib import contextmanager
 from typing import Any
 
 from google import genai
@@ -45,6 +46,43 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 class GeminiUnavailable(RuntimeError):
     """Raised when the model can't be reached after retries (quota/outage/no key)."""
+
+
+class GeminiQuotaExceeded(GeminiUnavailable):
+    """Raised when the API key is out of quota (HTTP 429 / RESOURCE_EXHAUSTED)."""
+
+
+_QUOTA_MESSAGE = (
+    "AI quota exhausted (RESOURCE_EXHAUSTED): this Gemini API key has reached "
+    "its rate / quota limit. Check the key's plan & billing."
+)
+
+
+def classify_gemini_error(err: Exception) -> GeminiUnavailable:
+    """Map a raw SDK error to our typed errors (quota vs generic)."""
+    if _status_of(err) == 429:
+        return GeminiQuotaExceeded(_QUOTA_MESSAGE)
+    return GeminiUnavailable(f"Gemini is temporarily unavailable: {err}")
+
+
+@contextmanager
+def guard_gemini():
+    """Wrap a direct Gemini SDK call so raw errors become our typed errors.
+
+    Usage:
+        with guard_gemini():
+            resp = await client.aio.models.generate_content(...)
+    """
+    try:
+        yield
+    except GeminiUnavailable:
+        raise  # already typed (e.g. from generate_text / _call_with_retry)
+    except APIError as err:
+        logger.warning("Gemini API error: %s", _detail_of(err))
+        raise classify_gemini_error(err) from err
+    except Exception as err:  # network / SDK-level failure
+        logger.warning("Gemini SDK/network error: %s", _detail_of(err))
+        raise GeminiUnavailable(f"Gemini is temporarily unavailable: {err}") from err
 
 
 def _is_configured() -> bool:
@@ -115,6 +153,8 @@ def _call_with_retry(model: str, contents: Any, config: Any | None) -> Any:
         _MAX_ATTEMPTS, model, _detail_of(last_err) if last_err else "unknown error",
         exc_info=last_err,
     )
+    if last_err is not None and _status_of(last_err) == 429:
+        raise GeminiQuotaExceeded(_QUOTA_MESSAGE) from last_err
     raise GeminiUnavailable(f"Gemini is temporarily unavailable: {last_err}") from last_err
 
 
