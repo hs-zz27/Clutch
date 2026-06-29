@@ -14,7 +14,7 @@ jobs:
       - run: npm ci && npm run build
         working-directory: ./frontend
         env:
-          VITE_CLUTCH_API_BASE: https://clutch-khbi.onrender.com
+          VITE_CLUTCH_API_BASE: https://clutch-api-695440268969.asia-south1.run.app
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: $ secrets.GITHUB_TOKEN 
