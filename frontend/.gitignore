@@ -29,3 +29,6 @@ dist-ssr
 # Ignore npm lockfile and TS build caches
 package-lock.json
 *.tsbuildinfo
+
+# Firebase
+.firebase/
