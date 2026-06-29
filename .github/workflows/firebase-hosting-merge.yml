@@ -17,8 +17,8 @@ jobs:
           VITE_CLUTCH_API_BASE: https://clutch-api-695440268969.asia-south1.run.app
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: $ secrets.GITHUB_TOKEN 
-          firebaseServiceAccount: $ secrets.FIREBASE_SERVICE_ACCOUNT_CLUTCH_APP_HK2706 
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLUTCH_APP_HK2706 }}
           channelId: live
           projectId: clutch-app-hk2706
           entryPoint: ./frontend
