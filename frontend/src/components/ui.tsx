@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useEffect } from 'react'
 import { Loader2, X } from 'lucide-react'

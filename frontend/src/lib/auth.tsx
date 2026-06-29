@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { User } from '../types'
 import { ClutchApi } from '../api'
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         .finally(() => setIsLoading(false))
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false)
     }
   }, [token])
